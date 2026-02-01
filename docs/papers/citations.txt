@@ -1,0 +1,28 @@
+BIBLIOGRAPHY
+
+[AGHAEI]
+1. Lablack, M., Qi, H., Shen, Y., & Yin, B. (2019). ASTIR: Spatio-Temporal Data Mining for Crowd Flow Prediction. IEEE Access, 7, 175159-175165.
+   URL: https://ieeexplore.ieee.org/document/8889654
+
+2. Kolios, P., et al. (2023). Model-Adaptive Event Triggering for Monitoring Recurrent Mobility Patterns in Public Transport. IEEE T-ITS.
+   URL: https://www.researchgate.net/publication/367633240_Model-Adaptive_Event_Triggering_for_Monitoring_Recurrent_Mobility_Patterns_in_Public_Transport
+
+3. Aghabozorgi, S., et al. (2015). Time-series clustering - A decade review. Information Systems, 48, 16-38.
+   URL: https://www.researchgate.net/publication/276075711_Time-series_clustering_-_A_decade_review
+
+[KHANH]
+4. Kundu, D., et al. (2025). Benefits from a new transit line: Exploring the impact of rare users and spatially heterogeneous variations in intensity of use. Journal of Public Transportation, 27, 100120.
+   URL: https://www.sciencedirect.com/science/article/pii/S1077291X25000050
+
+5. Aminpour, N., & Saidi, S. (2024). Unveiling mobility patterns beyond home/work activities: A topic modeling approach using transit smart card and land-use data. Sustainable Cities and Society, 114, 105745.
+   URL: https://www.researchgate.net/publication/385450078_Unveiling_mobility_patterns_beyond_homework_activities_A_topic_modeling_approach_using_transit_smart_card_and_land-use_data
+
+6. Chen, Y., et al. (2025). A Two-Stage Trip Inference Model of Purposes and Socio-Economic Attributes of Regular Public Transit Users. IEEE T-ITS.
+   URL: https://arxiv.org/abs/2502.00644
+
+7. Sun, L., et al. (2025). Optimizing Urban Mobility Through Complex Network Analysis and Big Data from Smart Cards. IoT, 6(3), 44.
+   URL: https://arxiv.org/abs/2502.17054
+
+[DOLHOV]
+
+[DAVARI]
