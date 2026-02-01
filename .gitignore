@@ -81,10 +81,7 @@ dist/
 #################################
 # Data (ignore heavy datasets)
 #################################
-data/images/*
-data/annotations/*
-!data/images/.gitkeep
-!data/annotations/.gitkeep
+datasets/*
 
 #################################
 # Report (keep slides + notes, ignore temp)
