@@ -25,12 +25,12 @@ BIBLIOGRAPHY
 
 [DOLHOV]
 8. Ma, X., Wu, Y.-J., Wang, Y., Chen, F., & Liu, J. (2013). Mining Smart Card Data for Transit Riders’ Travel Patterns. Transportation Research Part C: Emerging Technologies, 36, 1-12.
-URL: https://doi.org/10.1016/j.trc.2013.07.010
+   URL: https://doi.org/10.1016/j.trc.2013.07.010
 
 9. Cats, O. (2022). Identifying Human Mobility Patterns Using Smart Card Data. arXiv preprint arXiv:2208.05352.
-URL: https://arxiv.org/abs/2208.05352
+   URL: https://arxiv.org/abs/2208.05352
 
 10. Long, Y., & Thill, J.-C. (2015). Combining Smart Card Data and Household Travel Survey to Analyze Jobs–Housing Relationships in Beijing. Computers, Environment and Urban Systems, 53, 19-35.
-URL: https://arxiv.org/abs/1309.5993
+   URL: https://arxiv.org/abs/1309.5993
 
 [DAVARI]
