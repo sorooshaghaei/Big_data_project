@@ -83,6 +83,24 @@ dist/
 #################################
 datasets/*
 
+# Ignore everything under data, but keep folder structure
+data/**
+!data/.gitkeep
+!data/**/.gitkeep
+
+#################################
+# Common ML outputs (usually huge)
+#################################
+outputs/
+results/
+runs/
+models/
+checkpoints/
+wandb/
+mlruns/
+lightning_logs/
+tensorboard/
+
 #################################
 # Report (keep slides + notes, ignore temp)
 #################################
