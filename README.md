@@ -1,59 +1,142 @@
 # Big_data_project
 
-This repository contains our Big Data course project on **public transport smart-card usage / ridership**.
-Goal: build a **reproducible pipeline** that
-- aggregates raw validations/entries into a clean time-series fact table
-- forecasts passenger traffic for future time slots (hour/day)
-- detects **peak periods** (rush hours) and **abnormal surges** (events, disruptions)
+PostgreSQL-first reusable project for public transport demand analytics.
 
-Traffic in this project means **validations / entries / ridership counts**, not road traffic speed.
+Main goals:
+- build a canonical fact table from raw transit datasets
+- analyze daily/hourly usage patterns
+- support forecasting and anomaly detection
+- enrich demand with weather and holidays
 
-# Datasets
+Traffic in this project means **validations / entries / ridership counts**.
 
-Main dataset (hourly, best for peak detection):
-- MTA Subway Hourly Ridership (2020–2024)
-  https://data.ny.gov/Transportation/MTA-Subway-Hourly-Ridership-2020-2024/wujg-7c2s  
-  CSV download:
-  https://data.ny.gov/api/views/wujg-7c2s/rows.csv?accessType=DOWNLOAD
+## Restructured layout
 
-Secondary datasets (daily, good for weekly seasonality / abnormal days):
-- Île-de-France Mobilités — Validations sur le réseau de surface (1er trimestre)
+```text
+Big_data_project/
+├── src/
+│   ├── transport_analytics/
+│   │   ├── config.py
+│   │   ├── io.py
+│   │   ├── features.py
+│   │   ├── postgres.py
+│   │   └── pipeline.py
+│   ├── baseline.py            # compatibility wrapper
+│   └── utils.py               # compatibility wrapper
+├── sql/
+│   ├── 01_schema.sql
+│   ├── 02_views.sql
+│   └── 03_analytics_examples.sql
+├── notebooks/
+│   ├── 00_python_numpy_matplotlib_pandas_pyspark_bootcamp.ipynb
+│   ├── 01_data_analytics_pipeline.ipynb
+│   ├── 02_papers_summary.ipynb
+│   ├── 03_data_science_big_data_sql_foundations.ipynb
+│   └── 04_sql_active_learning_practice.ipynb
+├── scripts/
+│   ├── strip_notebook_metadata.py
+│   └── setup_git_filters.sh
+├── docs/
+│   ├── PROJECT_STRUCTURE.md
+│   ├── POSTGRES_SETUP.md
+│   └── GIT_NOTEBOOK_FILTER_SETUP.md
+└── data/processed/
+```
+
+## Datasets
+
+Main dataset (hourly):
+- MTA Subway Hourly Ridership (2020-2024)
+  https://data.ny.gov/Transportation/MTA-Subway-Hourly-Ridership-2020-2024/wujg-7c2s
+
+Secondary datasets:
+- Ile-de-France Mobilites daily validations (surface network)
   https://data.iledefrance-mobilites.fr/explore/dataset/validations-reseau-surface-nombre-validations-par-jour-1er-trimestre/
-
-- Kaggle — Public transport traffic data in France
+- Public transport traffic data in France (Kaggle)
   https://www.kaggle.com/datasets/gatandubuc/public-transport-traffic-data-in-france
 
-## What to look for in datasets (selection criteria)?
+## `data/` vs `datasets/`
 
-We should prioritize datasets that clearly contain:
-- a timestamp (date or datetime)
-- a location identifier (station / station complex / stop / line / zone)
-- a count (entries / validations / ridership)
+These two folders have different roles:
 
-Best-case: hourly data per station (ideal for peak detection).
-Acceptable: daily data per station/line across multiple years.
+- `data/`
+  - Main project storage for raw and generated data.
+  - Includes large raw sources (for example `data/soroosh_MTA/...`) and processed outputs (`data/processed/...`).
+  - Think: **working data area**.
 
-Avoid:
-- PDF-only “reports” without raw tables
-- network/topology datasets without time-series counts
-- road traffic speed/sensor datasets (not our definition of traffic)
+- `datasets/`
+  - Curated secondary datasets downloaded by project scripts.
+  - Usually smaller, cleaner CSV inputs used for comparative analysis.
+  - Think: **packaged dataset inputs**.
+
+In short:
+- `data/` = raw + processed pipeline data
+- `datasets/` = curated external dataset files
+
+## Quick start
+
+1. Run analytics notebook:
+   - `notebooks/00_python_numpy_matplotlib_pandas_pyspark_bootcamp.ipynb`
+   - Start here for full Python/data stack foundations + practice
+
+2. Run analytics notebook:
+   - `notebooks/01_data_analytics_pipeline.ipynb`
+
+3. Learn project SQL and DS basics:
+   - `notebooks/03_data_science_big_data_sql_foundations.ipynb`
+
+4. Practice SQL actively:
+   - `notebooks/04_sql_active_learning_practice.ipynb`
+
+5. Setup PostgreSQL:
+   - follow `docs/POSTGRES_SETUP.md`
+   - run `sql/01_schema.sql`, then `sql/02_views.sql`
+
+Project PostgreSQL/pgAdmin entry:
+- `http://34.155.143.75/pgadmin4/browser/`
+
+## Teammate setup (important)
+
+After cloning, run this once so notebook metadata stays clean in git history:
+
+```bash
+bash scripts/setup_git_filters.sh
+```
+
+If you already have local notebook changes and want to normalize them:
+
+```bash
+bash scripts/setup_git_filters.sh --normalize
+```
+
+Beginner guide:
+- `docs/GIT_NOTEBOOK_FILTER_SETUP.md`
+
+## Python pipeline usage
+
+```python
+from pathlib import Path
+from transport_analytics.pipeline import run_local_pipeline
+
+daily, featured = run_local_pipeline(root=Path("."), sample_mode=True)
+```
+
+This writes:
+- `data/processed/daily_fact_table.csv`
+- `data/processed/daily_fact_table_featured.csv`
+
+## PostgreSQL usage
+
+Use `src/transport_analytics/postgres.py` for programmatic loading.
+
+Example SQL analysis queries are in:
+- `sql/03_analytics_examples.sql`
 
 ## Bibliography
 
-Highly relevant (forecasting / peaks):
-- Lablack et al. (2019) ASTIR: Spatio-Temporal Data Mining for Crowd Flow Prediction
-  https://ieeexplore.ieee.org/document/8889654
-- Kolios et al. (2023) Model-Adaptive Event Triggering for Monitoring Recurrent Mobility Patterns in Public Transport
-  https://www.researchgate.net/publication/367633240_Model-Adaptive_Event_Triggering_for_Monitoring_Recurrent_Mobility_Patterns_in_Public_Transport
+References are stored in:
+- `docs/papers/citations.txt`
 
-Useful background (patterns / clustering / smart-card mining):
-- Aghabozorgi et al. (2015) Time-series clustering – A decade review
-  https://www.researchgate.net/publication/276075711_Time-series_clustering_-_A_decade_review
-- Ma et al. (2013) Mining Smart Card Data for Transit Riders’ Travel Patterns
-  https://doi.org/10.1016/j.trc.2013.07.010
-- Cats (2022) Identifying Human Mobility Patterns Using Smart Card Data
-  https://arxiv.org/abs/2208.05352
-  
-# Authors
+## Authors
 
-Nguyễn Hồ Bảo Khánh, Maksym DOLHOV, Mehdi AGHAEI and Nima DAVARI
+Nguyen Ho Bao Khanh, Maksym Dolhov, Mehdi Aghaei, Nima Davari

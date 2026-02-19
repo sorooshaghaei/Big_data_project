@@ -29,6 +29,9 @@ ENV/
 # Jupyter
 #################################
 .ipynb_checkpoints/
+# Keep notebooks tracked in git
+!notebooks/
+!notebooks/**/*.ipynb
 
 #################################
 # Tests / coverage
