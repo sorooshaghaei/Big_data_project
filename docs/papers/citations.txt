@@ -34,3 +34,9 @@ BIBLIOGRAPHY
    URL: https://arxiv.org/abs/1309.5993
 
 [DAVARI]
+
+11. Xie, P., Ma, M., Li, T., Ji, S., Du, S., Yu, Z., & Zhang, J. (2022). Spatio-Temporal Dynamic Graph Relation Learning for Urban Metro Flow Prediction. arXiv preprint arXiv:2204.02650.
+    URL: https://arxiv.org/abs/2204.02650
+
+12. He, Y., Zhao, Y., & Tsui, K. L. (2018). An Analysis of Factors Influencing Metro Station Ridership: Insights from Taipei Metro. In Proceedings of the 2018 21st International Conference on Intelligent Transportation Systems (ITSC), 1598–1603. DOI: 10.1109/ITSC.2018.8569948.
+    URL: https://doi.org/10.1109/ITSC.2018.8569948
