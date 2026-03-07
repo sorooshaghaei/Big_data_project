@@ -1,0 +1,670 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{headline}{}
+
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{graphicx}
+% \usepackage[utf8]{inputenc}
+% \usepackage[T5]{fontenc}
+\usepackage{fontspec}
+\setmainfont{Times New Roman} 
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+\definecolor{deepInk}{HTML}{1B1F4A}
+\definecolor{plumNight}{HTML}{ff5757}
+\definecolor{candyPink}{HTML}{FF4FA8}
+\definecolor{sunOrange}{HTML}{FFA640}
+\definecolor{aquaPop}{HTML}{2ED6C5}
+\definecolor{softSky}{HTML}{DDF0FF}
+\definecolor{textInk}{HTML}{1F2644}
+
+\setbeamercolor{normal text}{fg=textInk,bg=white}
+\setbeamercolor{structure}{fg=plumNight}
+\setbeamercolor{frametitle}{fg=white,bg=deepInk}
+\setbeamercolor{itemize item}{fg=candyPink}
+\setbeamercolor{itemize subitem}{fg=aquaPop}
+\setbeamercolor{author in head/foot}{bg=deepInk,fg=white}
+\setbeamercolor{date in head/foot}{bg=candyPink,fg=white}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+
+\setbeamertemplate{itemize item}{\color{candyPink}$\blacktriangleright$}
+\setbeamertemplate{itemize subitem}{\color{aquaPop}$\bullet$}
+
+\setbeamertemplate{background}{
+\begin{tikzpicture}[remember picture,overlay]
+  \path[shade, left color=softSky, right color=sunOrange!16]
+    (current page.south west) rectangle (current page.north east);
+  \fill[candyPink!18] ($(current page.north east)+(-0.9,-0.85)$) circle (1.15cm);
+  \fill[aquaPop!20] ($(current page.south west)+(0.9,0.8)$) circle (1.2cm);
+  \fill[sunOrange!35] ($(current page.south east)+(-0.55,0.55)$) circle (0.58cm);
+\end{tikzpicture}
+}
+
+\setbeamertemplate{frametitle}{
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[deepInk!95,rounded corners=8pt]
+      ([xshift=0.55cm,yshift=-0.2cm]current page.north west)
+      rectangle
+      ([xshift=-0.55cm,yshift=-1.1cm]current page.north east);
+    \fill[candyPink] ([xshift=0.9cm,yshift=-0.5cm]current page.north west) circle (0.11cm);
+    \fill[sunOrange] ([xshift=1.2cm,yshift=-0.5cm]current page.north west) circle (0.11cm);
+    \fill[aquaPop] ([xshift=1.5cm,yshift=-0.5cm]current page.north west) circle (0.11cm);
+    \node[anchor=west,text=white,font=\bfseries\large]
+      at ([xshift=1.95cm,yshift=-0.65cm]current page.north west) {\insertframetitle};
+  \end{tikzpicture}
+  \vspace{0.94cm}
+}
+
+\setbeamertemplate{footline}[frame number]
+\setbeamercolor{page number in head/foot}{fg=deepInk}
+
+\title[ISA-TF Paper]{Metro Ridership Forecasting using Inter-Station-Aware Transformer Networks}
+\subtitle{Big Data Course Presentation (10 minutes max)}
+\author[Team of 4]{Nima DAVARI \and Maksym DOLHOV \and Hồ Báo Khánh Nguyễn \and Mehdi AGHAEI}
+\institute[Big Data Course]{Big Data Course}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \begin{tikzpicture}[remember picture,overlay]
+    \path[shade, left color=deepInk, right color=plumNight]
+      (current page.south west) rectangle (current page.north east);
+  \end{tikzpicture}
+
+  \vspace*{0.25cm}
+  \begin{flushright}
+    \includegraphics[width=0.34\linewidth]{images/paris_cite_logo_white.png}
+  \end{flushright}
+
+  \vspace{0.95cm}
+  {\usebeamerfont{title}\color{white}\inserttitle\par}
+  \vspace{0.42cm}
+  {\usebeamerfont{subtitle}\color{sunOrange}\insertsubtitle\par}
+  \vspace{1.0cm}
+  {\usebeamerfont{author}\color{white}\insertauthor\par}
+  \vspace{0.18cm}
+  {\usebeamerfont{institute}\color{white}\insertinstitute\par}
+\end{frame}
+
+\begin{frame}{Presentation Roadmap}
+\begin{itemize}
+\item \hyperlink{sec:problem}{Problem and Motivation}
+\item \hyperlink{sec:architecture}{ISA-TF Architecture}
+\item \hyperlink{sec:experiments}{Experimental Evaluation}
+\item \hyperlink{sec:discussion}{Key Insights and Discussion}
+\end{itemize}
+\end{frame}
+
+% ------------------------- Presenter 1 -------------------------
+\section{Presenter 1}
+
+\begin{frame}{[1/12] Problem Context (Presenter 1)}\hypertarget{sec:problem}{}
+
+  \begin{itemize}
+    \item Metro systems need station-level inflow/outflow forecasts for operations.
+    \item Accurate forecasts improve:
+\begin{itemize}
+\item train scheduling
+\item staffing
+\item maintenance planning
+\end{itemize}
+\item Poor forecasts → congestion and delays
+    \item The task is hard because demand is both \textbf{temporal} and \textbf{network-dependent}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{[2/12] Research Gap and Paper Idea (Presenter 1)}
+  \begin{itemize}
+    \item Prior methods include statistical, machine learning, and hybrid approaches.
+    \item Many RNN/GCN-based methods are strong for short horizon but can degrade for longer horizon.
+    \item This paper proposes \textbf{ISA-TF}: a unified transformer framework for metro ridership forecasting.
+    \item Core idea: fuse ridership history with inter-station topology information.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{[3/12] Claimed Contributions (Presenter 1)}
+  \begin{itemize}
+    \item New \textbf{Inter-Station-Aware Transformer Networks} architecture.
+    \item Uses three metro graph views: physical, semantic similarity, and correlation.
+    \item Evaluated on SHMetro and HZMetro benchmarks.
+    \item Reports stronger long-horizon performance and a much lower parameter count.
+  \end{itemize}
+\end{frame}
+
+% ------------------------- Presenter 2 -------------------------
+\section{Presenter 2}
+
+\begin{frame}{[4/12] Problem Formulation (Presenter 2)}
+\hypertarget{sec:architecture}{}
+  \begin{itemize}
+    \item Input: past ridership sequence and metro graph:
+    \[
+      \{D^N_{t-n+1}, \dots, D^N_t\},\; G
+      \rightarrow
+      \{\hat{D}^N_{t+1}, \dots, \hat{D}^N_{t+m}\}
+    \]
+    \item Each station signal contains two values: inflow and outflow.
+    \item In experiments: \(n=4\) past intervals (60 min total), \(m=4\) future intervals.
+    \item Inference is autoregressive, so horizons longer than 60 min are possible.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{[5/12] Metro Graph Representation (Presenter 2)}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.49\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{images/interstation_graph_physical.jpg}\\
+      \scriptsize Physical topology view
+    \column{0.49\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{images/interstation_graph_enhanced.jpg}\\
+      \scriptsize Enhanced inter-station relation view
+  \end{columns}
+  \vspace{0.35em}
+  \small
+  \textbf{Explanation:} The paper represents the metro network with complementary graph structures, not only direct neighboring links. This helps the model capture both local structure and richer cross-station interaction patterns, which improves forecasting robustness when passenger flow dependencies are not purely geographic.
+\end{frame}
+\begin{frame}{Why Use Transformers?}
+\begin{itemize}
+\item RNN-based models struggle with long-range temporal dependencies
+\item Transformers use \textbf{self-attention} to capture long-term patterns
+\item Parallel computation improves scalability
+\item ISA-TF integrates network topology into the transformer framework
+\end{itemize}
+\end{frame}
+
+\begin{frame}{[6/12] ISA-TF Architecture (Presenter 2)}
+  \begin{itemize}
+
+
+\item Transformer encoder–decoder backbone
+\item Encoder processes historical ridership
+\item Graph information fused using:
+\begin{itemize}
+
+\item $M_p$ physical topology
+\item $M_s$ semantic similarity
+\item $Mc$ correlation matrix
+
+\end{itemize}
+\item Decoder predicts future ridership autoregressively
+\item 
+
+
+  \end{itemize}
+
+      \includegraphics[width=\linewidth]{images/ISA-TF_pipeline.png}\\
+      \scriptsize ISA-TF Architecture Pipeline
+\end{frame}
+
+% ------------------------- Presenter 3 -------------------------
+\section{Presenter 3}
+
+\begin{frame}{[7/12] Datasets (Presenter 3)}
+\hypertarget{sec:experiments}{}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lll}
+      \toprule
+      Property & SHMetro & HZMetro \\
+      \midrule
+      Period & Jul--Sep 2016 & Jan 1--25, 2019 \\
+      Stations & 288 & 80 \\
+      Physical edges & 958 & 248 \\
+      Avg daily passengers & 8.82M & 2.35M \\
+      Interval & 15 minutes & 15 minutes \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.2em}
+  \small SHMetro has 811.8M recorded transactions.
+\end{frame}
+
+\begin{frame}{[8/12] Experimental Setup (Presenter 3)}
+  \begin{itemize}
+    \item Preprocessing creates the three graph types per dataset.
+    \item Training details: Adam optimizer, 250 epochs, \(L_2\) loss.
+    \item Model hyperparameters: embedding size 512, 8 attention heads.
+    \item Evaluation metrics: RMSE(Root Mean Square Error) and MAE(Mean Absolute Erro).
+    \item Baselines: HM(Historical Mean), \\GB(Gradient Boosting), \\MLP(Multiple Layer Perceptron), \\RNN-GRU(recurrent neural network-Gated Recurrent Unit, it consists of two GRU layers with its hidden units set to 256.), \\STG2Seq(Spatial-temporal Graph to Sequence), \\DCRNN(Diffusion Convolutional Recurrent Neural Network), \\PVCGN(Physical-Virtual Collaboration Graph Network).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{[9/12] Main Results (Presenter 3)}
+  \small
+  \begin{table}
+    \centering
+    \begin{tabular}{llll}
+      \toprule
+      Dataset & Horizon & ISA-TF (RMSE/MAE) & PVCGN (RMSE/MAE) \\
+      \midrule
+      SHMetro & 60 min & \textbf{48.43/23.87} & 55.27/26.29 \\
+      HZMetro & 60 min & \textbf{41.68/24.91} & 42.61/24.93 \\
+      SHMetro & 15 min & 45.85/\textbf{23.05} & \textbf{44.97}/23.29 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.3em}
+  \begin{itemize}
+    \item Strong long-horizon robustness is the key result.
+    \item Short horizon remains competitive with the prior SOTA.
+  \end{itemize}
+  \textbf{\color{plumNight}Key Result:}
+ISA-TF performs best on long-horizon prediction (45–60 min).
+
+\end{frame}
+
+% ------------------------- Presenter 4 -------------------------
+\section{Presenter 4}
+
+\begin{frame}{[10/12] Efficiency Comparison (Presenter 4)}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.56\textwidth}
+      \centering
+      \includegraphics[width=\linewidth]{images/parameter_efficiency_chart.png}
+    \column{0.42\textwidth}
+      \small
+      \textbf{Explanation:} Based on the paper's reported values, ISA-TF ( Inter-Station-Aware Transformer Networks model) uses 47.6M parameters while PVCGN (Physical-Virtual Collaboration Graph Network) requires about 134M. This means ISA-TF is around 2.8x lighter, which is important for faster training, lower memory use, and easier deployment while keeping competitive or better forecasting performance.
+  \end{columns}
+  \vspace{0.3em}
+  \footnotesize Source: values reported by the paper (Figure 2 discussion and results section).
+\end{frame}
+
+\begin{frame}{[11/12] Discussion for Class (Presenter 4)}
+\hypertarget{sec:discussion}{}
+  \begin{itemize}
+    \item \textbf{Strengths:} unified architecture, good long-horizon behavior, parameter efficiency.
+    \item \textbf{Caveat:} evaluation is on two datasets only; generalization should be tested further.
+    \item \textbf{Possible extensions:}
+    \begin{itemize}
+      \item Include weather/events/holidays as exogenous features.
+      \item Add uncertainty intervals, not only point forecasts.
+      \item Evaluate transfer across cities with different network shapes.
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{[12/12] Conclusion and Q\&A (Presenter 4)}
+  \begin{itemize}
+    \item ISA-TF combines ridership history with topology-aware graph information.
+    \item It matches or beats prior methods, especially for 45--60 minute horizons.
+    \item It achieves this with about 3x fewer parameters than PVCGN.
+  \end{itemize}
+  \vspace{0.6em}
+  \textbf{Takeaway:} topology-aware transformers are a strong option for scalable metro ridership forecasting.
+  \vspace{0.8em}
+
+  \small Reference: K. Saleh, A.-S. Mihaita, and Y. Ou, 2023 IEEE ITSC (Manuscript 470 preprint).
+\end{frame}
+\begin{frame}
+\centering
+\Huge Thank You
+
+\vspace{1cm}
+
+\Large Questions?
+\end{frame}
+
+
+
+
+
+
+
+% ==========================================
+% APPENDIX
+% ==========================================
+
+\section{Appendix: Core Concepts \& Prerequisites}
+
+\begin{frame}{1. The Problem: Time-Series Forecasting}
+    \textbf{What are we trying to do?}
+    We want to predict how many passengers will enter and exit a metro station in the future based on past data
+    
+    \vspace{0.3cm}
+    \textbf{The Notation (The Math):}
+    \begin{itemize}
+        \item We look at a sequence of past data with length $n$: $(D_{t-n+1}^{N},D_{t-n+2}^{N},...,D_{t}^{N})$.
+        \item We want to predict a sequence of future data with length $m$: $(\hat{D}_{t+1}^{N},\hat{D}_{t+2}^{N},...,\hat{D}_{t+m}^{N})$.
+        \item $N$ is the total number of stations.
+        \item $D \in \mathbb{R}^{2}$ means the data has two real-number values: inflow count and outflow count.\\
+\textbf{Inflow Count:} The number of people walking \textit{into} the station and tapping their tickets to get on a train.\\
+\textbf{Outflow Count:} The number of people getting off the trains, walking \textit{out} of the station, and tapping their tickets to leave into the city.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{2. Graph Theory: Mapping the Metro}
+    In Big Data, we represent networks using \textbf{Graphs}.This paper uses THREE different graphs to give the AI the full picture:
+    
+    \begin{verbatim}
+    1. Physical Graph     2. Semantic Graph     3. Correlation Graph
+    (Physical Tracks)     (Similar Behaviors)   (Actual Travel Routes)
+    
+       A --- B                A       B            A ===== B
+       |     |                |       |             \     /
+       C --- D                C       D              C   D
+    (Who is next door?)   (Who is busy at the   (Where do people
+                           same time?)           actually travel?)
+    \end{verbatim}
+    \begin{itemize}
+        \item \textbf{Physical Edge Weight ($M_p$):} Based on actual track topology.
+        \item \textbf{Semantic Similarity ($M_s$):} Uses Dynamic Time Warping (DTW) for passenger flow patterns.
+        \item \textbf{Correlation Matrix ($M_c$):} Counts total travels from station $A$ to $B$.
+    \end{itemize}
+\end{frame}
+\begin{frame}{2.1 What is an "Edge Weight"?}
+    In Graph Theory, an \textbf{Edge} is a line connecting two nodes (stations). 
+    But we don't just want to know IF they are connected; we want to know HOW STRONGLY they are connected.
+    
+    This strength is called the \textbf{Edge Weight}.
+    
+    The paper calculates edge weights in three completely different ways to give the AI three different "views" of the metro system:
+    \begin{enumerate}
+        \item Physical (The tracks) 
+        \item Semantic (The passenger behavior) 
+        \item Correlation (The actual travel routes) 
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{2.2 Physical Edge Weight ($M_p$)}
+    \textbf{The Concept:} Are these stations directly next to each other on the actual train tracks? 
+    
+    \begin{itemize}
+        \item If there is a track between Station A and Station B, the base score is 1 ($E(a,b)=1$).
+        \item If there is NO track between them, the score is 0 ($E(a,b)=0$).
+    \end{itemize}
+    
+    \textbf{The Math ($M_p$):}
+    The formula just turns these 1s and 0s into fractions (normalization). 
+    $$M_{p}(a,b)=\frac{E(a,b)}{\sum_{k=1}^{N}E(a,k)}$$
+    
+    \textit{Why it matters:} If Station A suddenly gets crowded, the physical graph tells the AI that the station right next door is probably going to get crowded a few minutes later.
+\end{frame}
+
+\begin{frame}{2.3 Semantic Similarity ($M_s$) \& DTW}
+    \textbf{The Concept:} Do these stations have the same "vibe"? 
+    Imagine two business district stations on opposite sides of the city. They are not physically connected, but they BOTH get packed at 5:00 PM. 
+    
+    
+    \textbf{What is Dynamic Time Warping (DTW)?}
+    It is an algorithm that compares two time-series curves to see how similar they are, even if one is slightly delayed[cite: 111]. 
+    \begin{itemize}
+        \item If Station A peaks at 5:00 PM and Station B peaks at 5:15 PM, DTW recognizes they have the same behavior pattern and gives them a high similarity score ($F_s$).
+    \end{itemize}
+    
+    $$M_{s}(a,b)=\frac{F_{s}(a,b)}{\sum_{k=1}^{N}F_{s}(a,k)}$$
+    \textit{Why it matters:} It connects stations that share demographic behaviors, allowing the AI to learn broad city-wide patterns.
+\end{frame}
+
+\begin{frame}{2.4 Correlation Matrix ($M_c$)}
+    \textbf{The Concept:} Are people actually riding the train directly from Station A to Station B? 
+    
+    \begin{itemize}
+        \item The physical graph shows the tracks.
+        \item The semantic graph shows the schedule/behavior.
+        \item \textbf{The correlation graph shows the actual humans.} It counts the total number of travels that started at Station A and ended at Station B.
+    \end{itemize}
+    
+    \textbf{The Math ($M_c$):}
+    It takes the number of trips between A and B ($R_c$) and divides it by the total trips in the whole metro network to get a percentage.
+    $$M_{c}(a,b)=\frac{R_{c}(a,b)}{\sum_{k=1}^{N}R_{c}(a,k)}$$
+    
+    \textit{Why it matters:} If a concert ends at Station A, and historical data shows 80\% of concertgoers travel to Transfer Station B, this graph tells the AI to immediately predict a massive inflow at Station B.
+\end{frame}
+\begin{frame}{3. AI Architectures: RNNs vs. Transformers}
+    \textbf{The Old Way: RNNs (Recurrent Neural Networks)}
+    \begin{itemize}
+        \item RNNs read data chronologically, step-by-step.
+        \item Examples of sequential data:(Sentences (word by word), Time series (stock prices, weather), Speech signals, Video frames)
+        \item \textit{The Flaw:} They struggle to remember old information. They are challenged when it comes to long-term prediction horizons.
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{The New Way: Transformers (What this paper uses)}
+    \begin{itemize}
+        \item Transformers don't read step-by-step. They use a mechanism called \textbf{Self-Attention}.
+        \item Self-attention works by comparing Query and Key vectors to compute relevance scores, normalizing them with softmax, and using them to weight the Value vectors.
+        \item \textbf{Attention} allows the AI to look at ALL past data simultaneously and score which specific time steps are the most important.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{3.1 Self-Attention: Representing Each Token}
+\textbf{Step 1: Convert each token into vectors}
+
+\begin{itemize}
+    \item Each word (or time step in a time series) is first converted into a numerical vector using embeddings.
+    
+    \item From this vector, the model creates three new vectors using learned weight matrices:
+    
+    \begin{itemize}
+        \item \textbf{Query (Q)} – what the token is looking for.
+        \item \textbf{Key (K)} – what the token represents.
+        \item \textbf{Value (V)} – the information the token carries.
+    \end{itemize}
+    
+    \item These vectors are computed as:
+    
+    \[
+    Q = XW_Q \quad K = XW_K \quad V = XW_V
+    \]
+    
+    \item Where \(X\) is the input embedding and \(W_Q, W_K, W_V\) are learned matrices.
+\end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}{3.2 Computing Attention Scores}
+
+\textbf{Step 2: Measure similarity between tokens}
+
+\begin{itemize}
+    \item The model computes how relevant one token is to another.
+    
+    \item This is done using the dot product between the \textbf{Query} of one token and the \textbf{Key} of another.
+    
+    \[
+    score(i,j) = Q_i \cdot K_j
+    \]
+    
+    \item In transformers, the scaled version is used:
+    
+    \[
+    \text{Attention Score} = \frac{QK^T}{\sqrt{d_k}}
+    \]
+    
+    \item The scaling factor \( \sqrt{d_k} \) stabilizes training when the vector dimension becomes large.
+    
+    \item Higher scores mean the model should pay more attention to that token.
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{3.3 Attention Weights and Final Output}
+
+\textbf{Step 3: Convert scores into attention weights}
+
+\begin{itemize}
+    \item The raw attention scores are converted into probabilities using the \textbf{Softmax} function:
+    
+    \[
+    Attention(Q,K,V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+    \]
+    
+    \item The softmax ensures all attention weights sum to 1.
+    
+    \item These weights determine how much each token contributes to the final representation.
+    
+    \item The model then combines the \textbf{Value vectors} according to these weights to produce the final output.
+    
+    \item This allows the transformer to focus on the most relevant parts of the sequence.
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
+\begin{frame}[fragile]{4. The Paper's Invention: ISA-TF}
+    The \textbf{Inter-Station-Aware Transformer Networks (ISA-TF)} combines the time-reading power of Transformers with the spatial map of the 3 Graphs.
+    
+    \begin{verbatim}
+    [PAST DATA] --> (ENCODER) --> [FUSION] --> (DECODER) --> [FUTURE DATA]
+    Last 60 mins   Finds Time   Mixes Time     Guesses the   Next 60 mins
+                   Patterns     with 3 Graphs    Future
+    \end{verbatim}
+
+    \begin{itemize}
+        \item \textbf{Encoder:} Uses self-attention to capture interactions in the historical sequence.
+        \item \textbf{Intermediate Fusion:} Fuses the encoder output with the three network graphs via concatenation.
+        \item \textbf{Decoder:} Attends to both the encoder and the fused graph data to auto-regressively predict the future.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{5. The Math: Evaluation Metrics}
+    To prove their AI works, researchers test it on historical data (where they already know the answers) and measure the errors. Lower scores are better.
+
+    \vspace{0.2cm}
+    \textbf{RMSE (Root Mean Square Error):}
+    Heavily punishes large errors because the differences are squared before being averaged.
+    $$RMSE=\sqrt{\frac{1}{n}\sum_{i=1}^{n}(\hat{D}_{i}-D_{i})^{2}}$$ 
+
+    \vspace{0.2cm}
+    \textbf{MAE (Mean Absolute Error):}
+    The simple average of how far off the AI's guesses were.
+    $$MAE=\frac{1}{n}\sum_{i=1}^{n}|\hat{D}_{i}-D_{i}|$$ 
+    
+    \textit{Note: $\hat{D}_{i}$ is the predicted ridership, and $D_{i}$ is the actual ground-truth ridership.}
+\end{frame}
+
+\begin{frame}{6. What is Time-Series Data?}
+    \textbf{Time-Series} is just data collected over time, in order. 
+
+    The paper frames ridership prediction as a time-series forecasting problem. Imagine counting people at a door every 15 minutes.
+    \begin{itemize}
+        \item $t$ represents the \textit{current} time interval (e.g., 10:00 AM).
+        \item $t-1$ is the \textit{previous} interval (9:45 AM).
+        \item $t+1$ is the \textit{next} interval (10:15 AM).
+    \end{itemize}
+
+    \vspace{0.2cm}
+    When the paper says it uses $n=4$ historical steps to predict $m=4$ future steps, it means:
+    \textit{"I will look at the last 60 minutes (four 15-min chunks) to guess the next 60 minutes."}
+\end{frame}
+
+\begin{frame}[fragile]{7. How Does the AI Actually "Learn"?}
+    Machine learning models aren't magic; they use trial and error.
+    
+    \begin{enumerate}
+        \item \textbf{Prediction:} The AI makes a guess about the future.
+        \item \textbf{Loss Function:} We measure how wrong the guess was. The paper uses the \textbf{L2-loss function}, which heavily penalizes big mistakes.
+        \item \textbf{Optimizer:} A mathematical tool that tweaks the AI's internal math to make the next guess better. The paper uses the \textbf{Adam optimizer}.
+        \item \textbf{Epochs:} One full cycle of training through all the data. This model trained for \textbf{250 epochs}  (it practiced 250 times).
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{8. Unpacking "Self-Attention" (The Transformer's Secret)}
+    The core of a Transformer network is the \textbf{Self-Attention} layer. 
+    
+    \textit{Analogy: Reading a sentence.}
+    If you read: "The \textbf{bank} of the \textbf{river} was muddy."
+    
+    To understand the word "bank", your brain pays \textit{attention} to the word "river" (not a money bank). 
+    
+    In the metro paper, to predict a crowd at 5:00 PM, the Self-Attention mechanism looks at the sequence of past data and learns to assign higher "attention scores" to 4:45 PM and 4:30 PM, realizing those specific past moments are the most relevant clues.
+\end{frame}
+
+\begin{frame}{9. Decoding the "Baselines" (The Competitors)}
+    The paper compares its new ISA-TF model against older models (baselines) to prove it is better. Here is what they are in simple terms:
+
+    \begin{itemize}
+        \item \textbf{HM (Historical Mean):} The simplest method. It just calculates the average of past ridership to guess the future. 
+        \item \textbf{GB (Gradient Boosting):} A classic machine learning method that combines many "weak" decision trees to make a strong prediction.
+        \item \textbf{MLP (Multi-Layer Perceptron):} A standard, basic artificial neural network.
+        \item \textbf{RNN-GRU:} A recurrent network that processes time step-by-step, but suffers from "forgetting" long-term trends.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{10. Why do "Parameters" Matter?}
+    In the results, the paper brags that their model is roughly 3 times more efficient. They prove this by counting \textbf{Parameters}.
+    
+    \begin{itemize}
+        \item Think of parameters as the "gears" or "dials" inside the AI's mathematical engine. 
+        \item The previous best model (PVCGN) needed \textbf{134.14 Million} parameters to work.
+        \item This new ISA-TF model only needs \textbf{47.66 Million} parameters.
+    \end{itemize}
+    
+    \textbf{Why is this good?} A model with fewer parameters trains faster, requires less computer memory, and is easier for a city to actually install and run on their servers!
+\end{frame}
+
+\begin{frame}{11. How AI Learns: The "Mountain" Analogy}
+    Before we define Adam or Epochs, we need to understand the AI's goal.
+    
+    Imagine the AI is standing at the top of a mountain, blindfolded. 
+    \begin{itemize}
+        \item The \textbf{top of the mountain} represents being 100\% wrong (high error/loss).
+        \item The \textbf{bottom of the valley} represents being 100\% right (zero error).
+    \end{itemize}
+    
+    The AI wants to walk down to the bottom. 
+    \begin{itemize}
+        \item The \textbf{Loss Function} (like the L2-loss in the paper) tells the AI how high up the mountain it currently is.
+        \item The \textbf{Optimizer} is the strategy the AI uses to feel the ground with its foot and decide which direction to step next to go downhill.
+    \end{itemize}
+    
+\end{frame}
+
+\begin{frame}{12. What is the Adam Optimizer?}
+    
+    An \textbf{Optimizer} is the mathematical engine that updates the AI's internal numbers (parameters) after it makes a guess. 
+    
+    \textbf{Adam} stands for \textit{Adaptive Moment Estimation}. It is currently one of the most popular and powerful optimizers in the world. 
+    \begin{itemize}
+        \item Instead of taking the same size step every time, Adam is \textit{smart}. 
+        \item If the mountain is steep, Adam takes big, fast steps. 
+        \item If the AI feels it is getting close to the bottom (the right answer), Adam automatically takes tiny, careful steps so it doesn't overshoot the target.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{13. What is an Epoch?}
+    The paper mentions the training "lasted for 250 epochs".
+    
+    Think of the training data (the historical metro ridership) as a giant stack of flashcards. 
+    
+    \begin{itemize}
+        \item An \textbf{Epoch} is exactly ONE full pass through the entire stack of flashcards.
+        \item If the AI only looks at the flashcards once (1 epoch), it won't remember much. It will still make bad predictions.
+        \item To get smart, the AI needs to see the same data over and over again. 
+        \item By running \textbf{250 epochs}, the authors forced the AI to review the entire Shanghai and Hangzhou metro histories 250 times until it had memorized the underlying patterns perfectly! 
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{14. Putting the Training Loop Together}
+    Here is the exact cycle of how the ISA-TF model was trained:
+    
+    \begin{enumerate}
+        \item \textbf{Guess:} The AI looks at 60 mins of past metro data and guesses the next 60 mins.
+        \item \textbf{Check Error (Loss):} It compares its guess to the real historical answer using the L2-loss function.
+        \item \textbf{Learn (Adam):} The Adam optimizer looks at the error and tweaks the AI's internal math (parameters) so it will guess better next time.
+        \item \textbf{Repeat (Epochs):} The AI repeats this process for every single piece of data in the dataset. Once it finishes the whole dataset, that is 1 Epoch. It did this 250 times!
+    \end{enumerate}
+\end{frame}
+
+
+
+
+
+
+
+\end{document}
