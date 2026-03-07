@@ -179,26 +179,20 @@
 
 \begin{frame}{[6/12] ISA-TF Architecture (Presenter 2)}
   \begin{itemize}
-
-
-\item Transformer encoder–decoder backbone
-\item Encoder processes historical ridership
-\item Graph information fused using:
-\begin{itemize}
-
-\item $M_p$ physical topology
-\item $M_s$ semantic similarity
-\item $Mc$ correlation matrix
-
-\end{itemize}
-\item Decoder predicts future ridership autoregressively
-\item 
-
-
+    \item Transformer encoder–decoder backbone
+    \item Encoder processes historical ridership
+    \item Graph information fused using:
+      \begin{itemize}
+        \item $M_p$ physical topology
+        \item $M_s$ semantic similarity
+        \item $M_c$ correlation matrix
+      \end{itemize}
+    \item Decoder predicts future ridership autoregressively
   \end{itemize}
 
-      \includegraphics[width=\linewidth]{images/ISA-TF_pipeline.png}\\
-      \scriptsize ISA-TF Architecture Pipeline
+  \vspace{0.5em}
+  \includegraphics[width=\linewidth]{images/ISA-TF_pipeline.png}\\
+  \scriptsize ISA-TF Architecture Pipeline
 \end{frame}
 
 % ------------------------- Presenter 3 -------------------------
@@ -392,7 +386,7 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
     
     
     \textbf{What is Dynamic Time Warping (DTW)?}
-    It is an algorithm that compares two time-series curves to see how similar they are, even if one is slightly delayed[cite: 111]. 
+    It is an algorithm that compares two time-series curves to see how similar they are, even if one is slightly delayed. 
     \begin{itemize}
         \item If Station A peaks at 5:00 PM and Station B peaks at 5:15 PM, DTW recognizes they have the same behavior pattern and gives them a high similarity score ($F_s$).
     \end{itemize}
@@ -431,6 +425,32 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
         \item Self-attention works by comparing Query and Key vectors to compute relevance scores, normalizing them with softmax, and using them to weight the Value vectors.
         \item \textbf{Attention} allows the AI to look at ALL past data simultaneously and score which specific time steps are the most important.
     \end{itemize}
+\end{frame}
+
+\begin{frame}{3.0 Embeddings: Converting Tokens into Vectors}
+
+\textbf{Problem: Neural networks cannot process raw words or symbols.}
+
+\begin{itemize}
+    \item Words, tokens, or time steps must first be converted into numerical representations.
+    
+    \item \textbf{Embeddings} transform each token into a dense vector of real numbers.
+    
+    \item Example:
+    
+    \[
+    \text{cat} = [0.12, -0.44, 0.91, 0.33]
+    \]
+    
+    \[
+    \text{dog} = [0.10, -0.40, 0.88, 0.30]
+    \]
+    
+    \item Similar tokens obtain similar vectors in the embedding space, so embeddings capture semantic similarity (king - man + woman \(\approx\) queen).
+    
+    \item These embeddings become the input used to compute \textbf{Query (Q)}, \textbf{Key (K)}, and \textbf{Value (V)} vectors in the Transformer.
+\end{itemize}
+
 \end{frame}
 
 \begin{frame}{3.1 Self-Attention: Representing Each Token}
@@ -531,6 +551,293 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
         \item \textbf{Decoder:} Attends to both the encoder and the fused graph data to auto-regressively predict the future.
     \end{itemize}
 \end{frame}
+
+\begin{frame}{4.1 ISA-TF Architecture Overview}
+
+\textbf{ISA-TF (Inter-Station-Aware Transformer Networks)}
+
+\begin{itemize}
+    \item The model combines \textbf{temporal patterns} and \textbf{spatial relationships} between stations.
+    
+    \item Temporal dependencies are captured using a \textbf{Transformer architecture}.
+    
+    \item Spatial relationships between stations are represented using \textbf{three graph structures}.
+    
+    \item Overall pipeline:
+    
+    \[
+    \text{Past Data} \rightarrow \text{Encoder} \rightarrow \text{Graph Fusion} \rightarrow \text{Decoder} \rightarrow \text{Future Prediction}
+    \]
+    
+    \item Goal: predict the \textbf{next 60 minutes} using the \textbf{previous 60 minutes of observations}.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{4.2 ISA-TF Components}
+
+\textbf{Encoder}
+\begin{itemize}
+    \item Uses Transformer self-attention.
+    \item Captures temporal patterns in the historical sequence.
+    \item Produces a representation summarizing the past observations.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Intermediate Fusion}
+\begin{itemize}
+    \item Combines the encoder output with three station graphs.
+    \item Graphs represent spatial relationships between stations.
+    \item Fusion is performed using \textbf{concatenation}.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Decoder}
+\begin{itemize}
+    \item Uses attention to both the encoder output and fused graph data.
+    \item Predicts future values \textbf{auto-regressively}.
+    \item Generates the future sequence step-by-step.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{4.3 Encoder: Learning Temporal Patterns}
+
+\textbf{Input:}
+\begin{itemize}
+    \item Historical observations from the previous 60 minutes.
+    \item Each time step is converted into an embedding vector.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Processing Steps:}
+\begin{itemize}
+    \item Positional encoding is added to preserve the order of time.
+    \item Self-attention allows each time step to interact with all other time steps.
+    \item A feed-forward neural network refines the learned representation.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Output:}
+\begin{itemize}
+    \item A temporal representation summarizing patterns in the historical sequence.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Self-Attention Mechanism}
+
+\textbf{Goal:} Allow each time step in a sequence to incorporate information from all other time steps.
+
+\vspace{0.3cm}
+
+\textbf{Computation:}
+
+\[
+\text{Attention}(Q,K,V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+\]
+
+\begin{itemize}
+    \item \(Q\) = Query matrix
+    \item \(K\) = Key matrix
+    \item \(V\) = Value matrix
+    \item \(d_k\) = dimension of key vectors (used for scaling)
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item The dot product \(QK^T\) measures similarity between time steps.
+    \item The softmax function converts similarities into attention weights.
+    \item Each time step is represented as a weighted combination of all other time steps.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Feed-Forward Neural Network}
+
+\textbf{Goal:} Transform and refine the representations learned by the attention layer.
+
+\vspace{0.3cm}
+
+\textbf{Computation:}
+
+\[
+FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2
+\]
+
+\begin{itemize}
+    \item \(W_1, W_2\) are learned weight matrices
+    \item \(b_1, b_2\) are bias vectors
+    \item \(\max(0, \cdot)\) represents the ReLU activation function
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item The first linear transformation expands the feature space.
+    \item The nonlinear activation introduces model expressiveness.
+    \item The second transformation projects features back to the model dimension.
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{Activation Functions in Neural Networks}
+
+\textbf{Motivation}
+
+\begin{itemize}
+    \item Neural networks apply linear transformations to the input data.
+    \item If only linear operations were used, the model would behave like a simple linear model.
+    \item This would limit the ability of the network to learn complex patterns.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Solution: Activation Functions}
+
+\begin{itemize}
+    \item Activation functions introduce \textbf{nonlinearity} into the network.
+    \item This allows neural networks to approximate complex and nonlinear relationships in data.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{ReLU Activation Function}
+
+\textbf{Definition}
+
+\[
+ReLU(x) = \max(0, x)
+\]
+
+\begin{itemize}
+    \item If \(x > 0\), the output equals \(x\).
+    \item If \(x \leq 0\), the output is \(0\).
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Properties}
+
+\begin{itemize}
+    \item Simple and computationally efficient.
+    \item Introduces nonlinearity into the model.
+    \item Helps mitigate the vanishing gradient problem.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Usage in Transformers}
+
+\begin{itemize}
+    \item Applied inside the feed-forward neural network after the first linear transformation.
+\end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}{4.4 Intermediate Fusion: Adding Spatial Information}
+
+\textbf{Goal:}
+\begin{itemize}
+    \item Combine temporal patterns from the encoder with spatial relationships between stations.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Spatial Information:}
+\begin{itemize}
+    \item The model uses three graphs describing relationships between stations.
+    \item These graphs encode spatial dependencies such as distance or mobility flows.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Fusion Strategy:}
+\begin{itemize}
+    \item The encoder output is merged with graph features.
+    \item The paper performs this fusion using \textbf{concatenation}.
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{4.5 Concatenation in Feature Fusion}
+
+\textbf{Concatenation:}
+\begin{itemize}
+    \item Concatenation means joining two vectors into one larger vector.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Example:}
+
+\[
+\text{Temporal Features} = [0.3, 0.5, 0.2]
+\]
+
+\[
+\text{Graph Features} = [0.7, 0.1]
+\]
+
+\[
+\text{Concatenated Vector} = [0.3, 0.5, 0.2, 0.7, 0.1]
+\]
+
+\vspace{0.3cm}
+
+\begin{itemize}
+    \item This allows the model to use both temporal and spatial information simultaneously.
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{4.6 Decoder: Predicting Future Values}
+
+\textbf{Role of the Decoder:}
+\begin{itemize}
+    \item Generate predictions for the next 60 minutes.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Processing Steps:}
+\begin{itemize}
+    \item Masked self-attention ensures the model only sees past predictions.
+    \item Cross-attention allows the decoder to use the encoder output and fused graph information.
+    \item A feed-forward network refines the predictions.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Prediction Strategy:}
+\begin{itemize}
+    \item The model predicts future values \textbf{auto-regressively}, one step at a time.
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
 
 \begin{frame}{5. The Math: Evaluation Metrics}
     To prove their AI works, researchers test it on historical data (where they already know the answers) and measure the errors. Lower scores are better.
