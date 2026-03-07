@@ -969,6 +969,79 @@ ReLU(x) = \max(0, x)
 \end{frame}
 
 
+\begin{frame}{A.1 What is Convolution?}
+
+\textbf{Definition:}  
+Convolution is a mathematical operation that extracts local patterns from data by sliding a small filter (kernel) over the input.
+
+\begin{itemize}
+    \item Commonly used in \textbf{images, signals, and time series}.
+    \item Allows neural networks to detect features like:
+    \begin{itemize}
+        \item Edges or textures in images
+        \item Spikes or trends in time series
+    \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{A.2 Convolution Formula}
+
+For a 1D signal:
+
+\[
+y(t) = \sum_{i=0}^{k-1} x(t+i) \cdot w(i)
+\]
+
+\begin{itemize}
+    \item \(x(t)\) = input signal
+    \item \(w(i)\) = filter (kernel)
+    \item \(k\) = kernel size
+    \item \(y(t)\) = output at position \(t\)
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{A.3 Convolution Example}
+
+Input signal: \([2, 4, 6, 8]\)  
+
+Kernel: \([1, 0]\)  
+
+Sliding window computation:
+
+\[
+(2 \cdot 1 + 4 \cdot 0) = 2
+\]
+\[
+(4 \cdot 1 + 6 \cdot 0) = 4
+\]
+\[
+(6 \cdot 1 + 8 \cdot 0) = 6
+\]
+
+\textbf{Output:} \([2, 4, 6]\)
+
+\end{frame}
+
+\begin{frame}{A.4 Convolution Intuition}
+
+\begin{itemize}
+    \item Convolution can be seen as a “pattern detector” that scans the data.
+    \item The kernel highlights where a certain feature occurs.
+    \item Advantages:
+    \begin{itemize}
+        \item Detects local patterns efficiently
+        \item Reduces parameters compared to fully connected layers
+        \item Works well with structured data like images or time series
+    \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+
 
 
 
