@@ -308,919 +308,16 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
 
 
 
-
-
 % ==========================================
 % APPENDIX
 % ==========================================
 
 \section{Appendix: Core Concepts \& Prerequisites}
 
-\begin{frame}{1. The Problem: Time-Series Forecasting}
-    \textbf{What are we trying to do?}
-    We want to predict how many passengers will enter and exit a metro station in the future based on past data
-    
-    \vspace{0.3cm}
-    \textbf{The Notation (The Math):}
-    \begin{itemize}
-        \item We look at a sequence of past data with length $n$: $(D_{t-n+1}^{N},D_{t-n+2}^{N},...,D_{t}^{N})$.
-        \item We want to predict a sequence of future data with length $m$: $(\hat{D}_{t+1}^{N},\hat{D}_{t+2}^{N},...,\hat{D}_{t+m}^{N})$.
-        \item $N$ is the total number of stations.
-        \item $D \in \mathbb{R}^{2}$ means the data has two real-number values: inflow count and outflow count.\\
-\textbf{Inflow Count:} The number of people walking \textit{into} the station and tapping their tickets to get on a train.\\
-\textbf{Outflow Count:} The number of people getting off the trains, walking \textit{out} of the station, and tapping their tickets to leave into the city.
-    \end{itemize}
-\end{frame}
+% --- PART 1: THE PROBLEM BASICS ---
 
-\begin{frame}[fragile]{2. Graph Theory: Mapping the Metro}
-    In Big Data, we represent networks using \textbf{Graphs}.This paper uses THREE different graphs to give the AI the full picture:
-    
-    \begin{verbatim}
-    1. Physical Graph     2. Semantic Graph     3. Correlation Graph
-    (Physical Tracks)     (Similar Behaviors)   (Actual Travel Routes)
-    
-       A --- B                A       B            A ===== B
-       |     |                |       |             \     /
-       C --- D                C       D              C   D
-    (Who is next door?)   (Who is busy at the   (Where do people
-                           same time?)           actually travel?)
-    \end{verbatim}
-    \begin{itemize}
-        \item \textbf{Physical Edge Weight ($M_p$):} Based on actual track topology.
-        \item \textbf{Semantic Similarity ($M_s$):} Uses Dynamic Time Warping (DTW) for passenger flow patterns.
-        \item \textbf{Correlation Matrix ($M_c$):} Counts total travels from station $A$ to $B$.
-    \end{itemize}
-\end{frame}
-\begin{frame}{2.1 What is an "Edge Weight"?}
-    In Graph Theory, an \textbf{Edge} is a line connecting two nodes (stations). 
-    But we don't just want to know IF they are connected; we want to know HOW STRONGLY they are connected.
-    
-    This strength is called the \textbf{Edge Weight}.
-    
-    The paper calculates edge weights in three completely different ways to give the AI three different "views" of the metro system:
-    \begin{enumerate}
-        \item Physical (The tracks) 
-        \item Semantic (The passenger behavior) 
-        \item Correlation (The actual travel routes) 
-    \end{enumerate}
-\end{frame}
-
-\begin{frame}[fragile]{2.2 Physical Edge Weight ($M_p$)}
-    \textbf{The Concept:} Are these stations directly next to each other on the actual train tracks? 
-    
-    \begin{itemize}
-        \item If there is a track between Station A and Station B, the base score is 1 ($E(a,b)=1$).
-        \item If there is NO track between them, the score is 0 ($E(a,b)=0$).
-    \end{itemize}
-    
-    \textbf{The Math ($M_p$):}
-    The formula just turns these 1s and 0s into fractions (normalization). 
-    $$M_{p}(a,b)=\frac{E(a,b)}{\sum_{k=1}^{N}E(a,k)}$$
-    
-    \textit{Why it matters:} If Station A suddenly gets crowded, the physical graph tells the AI that the station right next door is probably going to get crowded a few minutes later.
-\end{frame}
-
-\begin{frame}{2.3 Semantic Similarity ($M_s$) \& DTW}
-    \textbf{The Concept:} Do these stations have the same "vibe"? 
-    Imagine two business district stations on opposite sides of the city. They are not physically connected, but they BOTH get packed at 5:00 PM. 
-    
-    
-    \textbf{What is Dynamic Time Warping (DTW)?}
-    It is an algorithm that compares two time-series curves to see how similar they are, even if one is slightly delayed. 
-    \begin{itemize}
-        \item If Station A peaks at 5:00 PM and Station B peaks at 5:15 PM, DTW recognizes they have the same behavior pattern and gives them a high similarity score ($F_s$).
-    \end{itemize}
-    
-    $$M_{s}(a,b)=\frac{F_{s}(a,b)}{\sum_{k=1}^{N}F_{s}(a,k)}$$
-    \textit{Why it matters:} It connects stations that share demographic behaviors, allowing the AI to learn broad city-wide patterns.
-\end{frame}
-
-\begin{frame}{2.4 Correlation Matrix ($M_c$)}
-    \textbf{The Concept:} Are people actually riding the train directly from Station A to Station B? 
-    
-    \begin{itemize}
-        \item The physical graph shows the tracks.
-        \item The semantic graph shows the schedule/behavior.
-        \item \textbf{The correlation graph shows the actual humans.} It counts the total number of travels that started at Station A and ended at Station B.
-    \end{itemize}
-    
-    \textbf{The Math ($M_c$):}
-    It takes the number of trips between A and B ($R_c$) and divides it by the total trips in the whole metro network to get a percentage.
-    $$M_{c}(a,b)=\frac{R_{c}(a,b)}{\sum_{k=1}^{N}R_{c}(a,k)}$$
-    
-    \textit{Why it matters:} If a concert ends at Station A, and historical data shows 80\% of concertgoers travel to Transfer Station B, this graph tells the AI to immediately predict a massive inflow at Station B.
-\end{frame}
-\begin{frame}{3. AI Architectures: RNNs vs. Transformers}
-    \textbf{The Old Way: RNNs (Recurrent Neural Networks)}
-    \begin{itemize}
-        \item RNNs read data chronologically, step-by-step.
-        \item Examples of sequential data:(Sentences (word by word), Time series (stock prices, weather), Speech signals, Video frames)
-        \item \textit{The Flaw:} They struggle to remember old information. They are challenged when it comes to long-term prediction horizons.
-    \end{itemize}
-
-    \vspace{0.3cm}
-    \textbf{The New Way: Transformers (What this paper uses)}
-    \begin{itemize}
-        \item Transformers don't read step-by-step. They use a mechanism called \textbf{Self-Attention}.
-        \item Self-attention works by comparing Query and Key vectors to compute relevance scores, normalizing them with softmax, and using them to weight the Value vectors.
-        \item \textbf{Attention} allows the AI to look at ALL past data simultaneously and score which specific time steps are the most important.
-    \end{itemize}
-\end{frame}
-
-\begin{frame}{3.0 Embeddings: Converting Tokens into Vectors}
-
-\textbf{Problem: Neural networks cannot process raw words or symbols.}
-
-\begin{itemize}
-    \item Words, tokens, or time steps must first be converted into numerical representations.
-    
-    \item \textbf{Embeddings} transform each token into a dense vector of real numbers.
-    
-    \item Example:
-    
-    \[
-    \text{cat} = [0.12, -0.44, 0.91, 0.33]
-    \]
-    
-    \[
-    \text{dog} = [0.10, -0.40, 0.88, 0.30]
-    \]
-    
-    \item Similar tokens obtain similar vectors in the embedding space, so embeddings capture semantic similarity (king - man + woman \(\approx\) queen).
-    
-    \item These embeddings become the input used to compute \textbf{Query (Q)}, \textbf{Key (K)}, and \textbf{Value (V)} vectors in the Transformer.
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}{3.1 Self-Attention: Representing Each Token}
-\textbf{Step 1: Convert each token into vectors}
-
-\begin{itemize}
-    \item Each word (or time step in a time series) is first converted into a numerical vector using embeddings.
-    
-    \item From this vector, the model creates three new vectors using learned weight matrices:
-    
-    \begin{itemize}
-        \item \textbf{Query (Q)} – what the token is looking for.
-        \item \textbf{Key (K)} – what the token represents.
-        \item \textbf{Value (V)} – the information the token carries.
-    \end{itemize}
-    
-    \item These vectors are computed as:
-    
-    \[
-    Q = XW_Q \quad K = XW_K \quad V = XW_V
-    \]
-    
-    \item Where \(X\) is the input embedding and \(W_Q, W_K, W_V\) are learned matrices.
-\end{itemize}
-
-\end{frame}
-
-
-
-
-\begin{frame}{3.2 Computing Attention Scores}
-
-\textbf{Step 2: Measure similarity between tokens}
-
-\begin{itemize}
-    \item The model computes how relevant one token is to another.
-    
-    \item This is done using the dot product between the \textbf{Query} of one token and the \textbf{Key} of another.
-    
-    \[
-    score(i,j) = Q_i \cdot K_j
-    \]
-    
-    \item In transformers, the scaled version is used:
-    
-    \[
-    \text{Attention Score} = \frac{QK^T}{\sqrt{d_k}}
-    \]
-    
-    \item The scaling factor \( \sqrt{d_k} \) stabilizes training when the vector dimension becomes large.
-    
-    \item Higher scores mean the model should pay more attention to that token.
-\end{itemize}
-
-\end{frame}
-
-
-
-\begin{frame}{3.3 Attention Weights and Final Output}
-
-\textbf{Step 3: Convert scores into attention weights}
-
-\begin{itemize}
-    \item The raw attention scores are converted into probabilities using the \textbf{Softmax} function:
-    
-    \[
-    Attention(Q,K,V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-    \]
-    
-    \item The softmax ensures all attention weights sum to 1.
-    
-    \item These weights determine how much each token contributes to the final representation.
-    
-    \item The model then combines the \textbf{Value vectors} according to these weights to produce the final output.
-    
-    \item This allows the transformer to focus on the most relevant parts of the sequence.
-\end{itemize}
-
-\end{frame}
-
-
-
-
-
-
-\begin{frame}[fragile]{4. The Paper's Invention: ISA-TF}
-    The \textbf{Inter-Station-Aware Transformer Networks (ISA-TF)} combines the time-reading power of Transformers with the spatial map of the 3 Graphs.
-    
-    \begin{verbatim}
-    [PAST DATA] --> (ENCODER) --> [FUSION] --> (DECODER) --> [FUTURE DATA]
-    Last 60 mins   Finds Time   Mixes Time     Guesses the   Next 60 mins
-                   Patterns     with 3 Graphs    Future
-    \end{verbatim}
-
-    \begin{itemize}
-        \item \textbf{Encoder:} Uses self-attention to capture interactions in the historical sequence.
-        \item \textbf{Intermediate Fusion:} Fuses the encoder output with the three network graphs via concatenation.
-        \item \textbf{Decoder:} Attends to both the encoder and the fused graph data to auto-regressively predict the future.
-    \end{itemize}
-\end{frame}
-
-\begin{frame}{4.1 ISA-TF Architecture Overview}
-
-\textbf{ISA-TF (Inter-Station-Aware Transformer Networks)}
-
-\begin{itemize}
-    \item The model combines \textbf{temporal patterns} and \textbf{spatial relationships} between stations.
-    
-    \item Temporal dependencies are captured using a \textbf{Transformer architecture}.
-    
-    \item Spatial relationships between stations are represented using \textbf{three graph structures}.
-    
-    \item Overall pipeline:
-    
-    \[
-    \text{Past Data} \rightarrow \text{Encoder} \rightarrow \text{Graph Fusion} \rightarrow \text{Decoder} \rightarrow \text{Future Prediction}
-    \]
-    
-    \item Goal: predict the \textbf{next 60 minutes} using the \textbf{previous 60 minutes of observations}.
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}{4.2 ISA-TF Components}
-
-\textbf{Encoder}
-\begin{itemize}
-    \item Uses Transformer self-attention.
-    \item Captures temporal patterns in the historical sequence.
-    \item Produces a representation summarizing the past observations.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Intermediate Fusion}
-\begin{itemize}
-    \item Combines the encoder output with three station graphs.
-    \item Graphs represent spatial relationships between stations.
-    \item Fusion is performed using \textbf{concatenation}.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Decoder}
-\begin{itemize}
-    \item Uses attention to both the encoder output and fused graph data.
-    \item Predicts future values \textbf{auto-regressively}.
-    \item Generates the future sequence step-by-step.
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}{4.3 Encoder: Learning Temporal Patterns}
-
-\textbf{Input:}
-\begin{itemize}
-    \item Historical observations from the previous 60 minutes.
-    \item Each time step is converted into an embedding vector.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Processing Steps:}
-\begin{itemize}
-    \item Positional encoding is added to preserve the order of time.
-    \item Self-attention allows each time step to interact with all other time steps.
-    \item A feed-forward neural network refines the learned representation.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Output:}
-\begin{itemize}
-    \item A temporal representation summarizing patterns in the historical sequence.
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}{Self-Attention Mechanism}
-
-\textbf{Goal:} Allow each time step in a sequence to incorporate information from all other time steps.
-
-\vspace{0.3cm}
-
-\textbf{Computation:}
-
-\[
-\text{Attention}(Q,K,V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-\]
-
-\begin{itemize}
-    \item \(Q\) = Query matrix
-    \item \(K\) = Key matrix
-    \item \(V\) = Value matrix
-    \item \(d_k\) = dimension of key vectors (used for scaling)
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Interpretation:}
-\begin{itemize}
-    \item The dot product \(QK^T\) measures similarity between time steps.
-    \item The softmax function converts similarities into attention weights.
-    \item Each time step is represented as a weighted combination of all other time steps.
-\end{itemize}
-
-\end{frame}
-
-
-\begin{frame}{Feed-Forward Neural Network}
-
-\textbf{Goal:} Transform and refine the representations learned by the attention layer.
-
-\vspace{0.3cm}
-
-\textbf{Computation:}
-
-\[
-FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2
-\]
-
-\begin{itemize}
-    \item \(W_1, W_2\) are learned weight matrices
-    \item \(b_1, b_2\) are bias vectors
-    \item \(\max(0, \cdot)\) represents the ReLU activation function
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Interpretation:}
-\begin{itemize}
-    \item The first linear transformation expands the feature space.
-    \item The nonlinear activation introduces model expressiveness.
-    \item The second transformation projects features back to the model dimension.
-\end{itemize}
-
-\end{frame}
-
-
-
-
-\begin{frame}{What is a Neural Network?}
-
-\textbf{Goal:} Learn a function that maps inputs to outputs.
-
-\vspace{0.3cm}
-
-Example in this paper:
-
-\[
-\text{Past ridership data} \rightarrow \text{Future ridership prediction}
-\]
-
-\vspace{0.3cm}
-
-A neural network is simply a stack of mathematical functions:
-
-\[
-y = f(x)
-\]
-
-where:
-
-\begin{itemize}
-    \item \(x\) = input data
-    \item \(f\) = learned function
-    \item \(y\) = predicted output
-\end{itemize}
-
-\vspace{0.3cm}
-
-Instead of manually designing the function, the network \textbf{learns it from data}.
-\end{frame}
-
-
-\begin{frame}{Weights and Parameters}
-
-Neural networks learn by adjusting internal numbers called \textbf{parameters}.
-
-\vspace{0.3cm}
-
-These parameters are called \textbf{weights}.
-
-\vspace{0.3cm}
-
-Example of a simple neuron:
-
-\[
-y = w_1x_1 + w_2x_2 + b
-\]
-
-Where:
-
-\begin{itemize}
-    \item \(x_1,x_2\) = input features
-    \item \(w_1,w_2\) = weights (parameters to learn)
-    \item \(b\) = bias
-\end{itemize}
-
-\vspace{0.3cm}
-
-During training, the model changes these weights so predictions become more accurate.
-\end{frame}
-
-
-\begin{frame}{Forward Pass: Making a Prediction}
-
-Training a neural network starts with a \textbf{forward pass}.
-
-\vspace{0.3cm}
-
-Steps:
-
-\begin{enumerate}
-    \item Input data enters the network.
-    \item Each layer applies a mathematical transformation.
-    \item The network produces a prediction.
-\end{enumerate}
-
-Example:
-
-\[
-\text{Past metro data} \rightarrow \text{Neural network} \rightarrow \hat{y}
-\]
-
-\[
-\hat{y} = \text{predicted ridership}
-\]
-
-\vspace{0.3cm}
-
-At this stage, the prediction is usually wrong because the weights are not yet trained.
-\end{frame}
-
-
-\begin{frame}{Loss Function: Measuring Error}
-
-After making a prediction, we measure how wrong it is.
-
-\vspace{0.3cm}
-
-This is done using a \textbf{loss function}.
-
-\vspace{0.3cm}
-
-Example used in the paper: L2 loss
-
-\[
-L = (\hat{y} - y)^2
-\]
-
-Where:
-
-\begin{itemize}
-    \item \(y\) = true value
-    \item \(\hat{y}\) = predicted value
-\end{itemize}
-
-\vspace{0.3cm}
-
-Goal of training:
-
-\[
-\textbf{Minimize the loss}
-\]
-
-The smaller the loss, the better the prediction.
-\end{frame}
-
-
-\begin{frame}{Gradients and Backpropagation}
-
-To improve predictions, the network must adjust its weights.
-
-\vspace{0.3cm}
-
-This is done using \textbf{gradients}.
-
-\vspace{0.3cm}
-
-A gradient tells us:
-
-\begin{quote}
-"If we slightly change this weight, how will the loss change?"
-\end{quote}
-
-Mathematically:
-
-\[
-\frac{\partial L}{\partial w}
-\]
-
-
-Training uses \textbf{backpropagation}: \\1. Compute prediction \\2. Measure loss \\3. Compute gradients \\4. Update weights \\
-
-This process repeats thousands of times until the model improves.
-\end{frame}
-
-\begin{frame}[fragile]{What is Softmax?}
-    \textbf{The Concept:} 
-    Softmax is a mathematical function that takes raw, random scores and converts them into \textbf{probabilities} that sum to 1.0 (or 100\%).
-    
-    \begin{verbatim}
-    Raw Attention Scores        Softmax Math         Final Probabilities
-    
-    Station A:  3.2   ----->   e^(3.2) / Sum   ----->   84%  (Focus here!)
-    Station B:  1.0   ----->   e^(1.0) / Sum   ----->   11%  (A little)
-    Station C: -0.5   ----->   e^(-0.5) / Sum  ----->    5%  (Ignore)
-    
-    TOTAL:      3.7                                    100% 
-    \end{verbatim}
-
-    \vspace{0.1cm}
-    \textbf{The Formula:}
-    $$\text{Softmax}(x_{i}) = \frac{e^{x_{i}}}{\sum_{j} e^{x_{j}}}$$
-\end{frame}
-
-\begin{frame}[fragile]{What is Backpropagation?}
-    \textbf{The Concept:}
-    If the "Forward Pass" is the AI taking a guess, \textbf{Backpropagation} is the AI learning from its mistake. It sends the error backwards through the network to update the weights.
-
-    \begin{verbatim}
-    1. FORWARD (Guessing):
-       Input Data  ---> [Weight A] ---> [Weight B] ---> Guess (100 passengers)
-                                                        Real Answer (150) 
-                                                        ERROR = 50
-    
-    2. BACKWARD (Learning via Backpropagation):
-       Input Data  <--- [Update A] <--- [Update B] <--- ERROR = 50
-                        (Blame A)       (Blame B)
-    \end{verbatim}
-
-    \begin{itemize}
-        \item It uses the \textbf{Chain Rule} from calculus to calculate "Gradients".
-        \item It asks: \textit{"How much did Weight B contribute to the error? How much did Weight A contribute?"}
-        \item Once it assigns the blame, the Optimizer (like Adam) tweaks the weights so the network is smarter for the next guess.
-    \end{itemize}
-\end{frame}
-
-
-\begin{frame}{The Vanishing Gradient Problem}
-
-In deep neural networks, gradients must travel through many layers.
-
-\vspace{0.3cm}
-
-Sometimes these gradients become extremely small.
-
-\[
-\text{gradient} \approx 0
-\]
-
-\vspace{0.3cm}
-
-When this happens:
-
-\begin{itemize}
-    \item Weight updates become tiny
-    \item Early layers stop learning
-    \item Training becomes very slow
-\end{itemize}
-
-\vspace{0.3cm}
-
-This issue is called the \textbf{vanishing gradient problem}.
-\end{frame}
-
-
-\begin{frame}{Why Activation Functions Help}
-
-Without activation functions, neural networks would behave like simple linear models.
-
-\vspace{0.3cm}
-
-Activation functions introduce \textbf{nonlinearity}.
-
-\vspace{0.3cm}
-
-They allow networks to learn complex patterns such as:
-
-\begin{itemize}
-    \item nonlinear trends
-    \item sudden spikes in ridership
-    \item long temporal dependencies
-\end{itemize}
-
-\vspace{0.3cm}
-
-Some activation functions (like sigmoid) can worsen the vanishing gradient problem.
-
-Modern models often use \textbf{ReLU} instead.
-\end{frame}
-
-
-
-
-\begin{frame}[fragile]{How Gradients Flow in a Neural Network}
-
-During training, the error signal travels backward through the network.
-
-\begin{verbatim}
-
-Forward pass
-
-Input → Layer1 → Layer2 → Layer3 → Output
-
-
-Backward pass (gradients)
-
-Input ← Layer1 ← Layer2 ← Layer3 ← Output
-        0.8       0.5       0.2
-
-\end{verbatim}
-
-Each layer multiplies the gradient by a small number.
-
-If many layers are stacked, the gradient can shrink rapidly.
-
-\end{frame}
-
-
-\begin{frame}[fragile]{Why Gradients Vanish}
-
-Imagine each layer multiplies the gradient by 0.5.
-
-\begin{verbatim}
-
-Layer 5 gradient = 1.0
-
-Layer 4 gradient = 1.0 × 0.5 = 0.5
-Layer 3 gradient = 0.5 × 0.5 = 0.25
-Layer 2 gradient = 0.25 × 0.5 = 0.125
-Layer 1 gradient = 0.125 × 0.5 = 0.0625
-
-\end{verbatim}
-
-By the time the gradient reaches early layers, it is almost zero.
-
-This means early layers barely learn.
-
-\end{frame}
-
-
-\begin{frame}[fragile]{Vanishing Gradient Visualization}
-
-\begin{verbatim}
-
-Layer2(gradient = 0.25) ← Layer3(gradient = 0.5) ← Output(gradient = 1.0)
-Input(gradient = 0.0625) ← Layer1(gradient = 0.125) ←
-\end{verbatim}
-
-Early layers(near the input) receive almost no learning signal.
-
-\end{frame}
-
-
-\begin{frame}[fragile]{Sigmoid and Vanishing Gradients}
-
-Sigmoid squashes values between 0 and 1.
-
-\begin{verbatim}
-
-    Sigmoid curve(any S-shaped mathematical function)
-
-1  |       ______ (barely moves → learning stops.)
-   |     /
-0.5|----/
-   |   /
-   |  /
-0  +----------------
-
-\end{verbatim}
-
-At the edges of the curve, the slope(The slope tells us how fast a function changes) is very small.
-
-Small slope → tiny gradients → vanishing gradients.
-
-\end{frame}
-
-
-\begin{frame}[fragile]{Why ReLU Helps $(Rectified Linear Unit)$}
-
-ReLU keeps gradients large for positive values.\\
-
-
-\begin{verbatim}
-
-ReLU    Output
-        |
-        |       /     Gradient is constant for positive inputs.
-        |      /      This allows gradients to flow through many layers.
-        |     /
-        |____/
-        |
-        +-------------
-
-\end{verbatim}
-
-\end{frame}
-
-
-
-
-
-\begin{frame}{Activation Functions in Neural Networks}
-
-\textbf{Motivation}
-
-\begin{itemize}
-    \item Neural networks apply linear transformations to the input data.
-    \item If only linear operations were used, the model would behave like a simple linear model.
-    \item This would limit the ability of the network to learn complex patterns.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Solution: Activation Functions}
-
-\begin{itemize}
-    \item Activation functions introduce \textbf{nonlinearity} into the network.
-    \item This allows neural networks to approximate complex and nonlinear relationships in data.
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}{ReLU Activation Function}
-
-\textbf{Definition}
-
-\[
-ReLU(x) = \max(0, x)
-\]
-
-\begin{itemize}
-    \item If \(x > 0\), the output equals \(x\).
-    \item If \(x \leq 0\), the output is \(0\).
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Properties}
-
-\begin{itemize}
-    \item Simple and computationally efficient.
-    \item Introduces nonlinearity into the model.
-    \item Helps mitigate the vanishing gradient problem.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Usage in Transformers}
-
-\begin{itemize}
-    \item Applied inside the feed-forward neural network after the first linear transformation.
-\end{itemize}
-
-\end{frame}
-
-
-
-
-\begin{frame}{4.4 Intermediate Fusion: Adding Spatial Information}
-
-\textbf{Goal:}
-\begin{itemize}
-    \item Combine temporal patterns from the encoder with spatial relationships between stations.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Spatial Information:}
-\begin{itemize}
-    \item The model uses three graphs describing relationships between stations.
-    \item These graphs encode spatial dependencies such as distance or mobility flows.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Fusion Strategy:}
-\begin{itemize}
-    \item The encoder output is merged with graph features.
-    \item The paper performs this fusion using \textbf{concatenation}.
-\end{itemize}
-
-\end{frame}
-
-
-
-\begin{frame}{4.5 Concatenation in Feature Fusion}
-
-\textbf{Concatenation:}
-\begin{itemize}
-    \item Concatenation means joining two vectors into one larger vector.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Example:}
-
-\[
-\text{Temporal Features} = [0.3, 0.5, 0.2]
-\]
-
-\[
-\text{Graph Features} = [0.7, 0.1]
-\]
-
-\[
-\text{Concatenated Vector} = [0.3, 0.5, 0.2, 0.7, 0.1]
-\]
-
-\vspace{0.3cm}
-
-\begin{itemize}
-    \item This allows the model to use both temporal and spatial information simultaneously.
-\end{itemize}
-
-\end{frame}
-
-
-
-\begin{frame}{4.6 Decoder: Predicting Future Values}
-
-\textbf{Role of the Decoder:}
-\begin{itemize}
-    \item Generate predictions for the next 60 minutes.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Processing Steps:}
-\begin{itemize}
-    \item Masked self-attention ensures the model only sees past predictions.
-    \item Cross-attention allows the decoder to use the encoder output and fused graph information.
-    \item A feed-forward network refines the predictions.
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textbf{Prediction Strategy:}
-\begin{itemize}
-    \item The model predicts future values \textbf{auto-regressively}, one step at a time.
-\end{itemize}
-
-\end{frame}
-
-
-
-
-
-
-
-\begin{frame}{5. The Math: Evaluation Metrics}
-    To prove their AI works, researchers test it on historical data (where they already know the answers) and measure the errors. Lower scores are better.
-
-    \vspace{0.2cm}
-    \textbf{RMSE (Root Mean Square Error):}
-    Heavily punishes large errors because the differences are squared before being averaged.
-    $$RMSE=\sqrt{\frac{1}{n}\sum_{i=1}^{n}(\hat{D}_{i}-D_{i})^{2}}$$ 
-
-    \vspace{0.2cm}
-    \textbf{MAE (Mean Absolute Error):}
-    The simple average of how far off the AI's guesses were.
-    $$MAE=\frac{1}{n}\sum_{i=1}^{n}|\hat{D}_{i}-D_{i}|$$ 
-    
-    \textit{Note: $\hat{D}_{i}$ is the predicted ridership, and $D_{i}$ is the actual ground-truth ridership.}
-\end{frame}
-
-\begin{frame}{6. What is Time-Series Data?}
-    \textbf{Time-Series} is just data collected over time, in order. 
+\begin{frame}{1.1 What is Time-Series Data?}
+    \textbf{Time-Series} is data collected over time, in chronological order. 
 
     The paper frames ridership prediction as a time-series forecasting problem. Imagine counting people at a door every 15 minutes.
     \begin{itemize}
@@ -1234,194 +331,465 @@ ReLU(x) = \max(0, x)
     \textit{"I will look at the last 60 minutes (four 15-min chunks) to guess the next 60 minutes."}
 \end{frame}
 
-\begin{frame}[fragile]{7. How Does the AI Actually "Learn"?}
-    Machine learning models aren't magic; they use trial and error.
+\begin{frame}{1.2 The Problem: Time-Series Forecasting}
+    \textbf{What are we trying to do?}
+    Predict how many passengers will enter and exit a metro station in the future based on past data.
     
+    \vspace{0.3cm}
+    \textbf{The Notation (The Math):}
+    \begin{itemize}
+        \item Past data sequence (length $n$): $(D_{t-n+1}^{N},D_{t-n+2}^{N},...,D_{t}^{N})$.
+        \item Future data sequence (length $m$): $(\hat{D}_{t+1}^{N},\hat{D}_{t+2}^{N},...,\hat{D}_{t+m}^{N})$.
+        \item $N$ is the total number of stations.
+        \item $D \in \mathbb{R}^{2}$ means the data has two values:
+        \begin{itemize}
+            \item \textbf{Inflow Count:} People entering the station to ride.
+            \item \textbf{Outflow Count:} People leaving the station into the city.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% --- PART 2: NEURAL NETWORK FOUNDATIONS ---
+
+\begin{frame}{2.1 What is a Neural Network?}
+    \textbf{Goal:} Learn a function that maps inputs to outputs.
+    
+    Example in this paper:
+    \[
+    \text{Past ridership data} \rightarrow \text{Future ridership prediction}
+    \]
+    
+    A neural network is a stack of mathematical functions $y = f(x)$, where:
+    \begin{itemize}
+        \item $x$ = input data
+        \item $f$ = learned function
+        \item $y$ = predicted output
+    \end{itemize}
+    
+    Instead of manually designing the function, the network \textbf{learns it from data}.
+\end{frame}
+
+\begin{frame}{2.2 Weights and Parameters}
+    Neural networks learn by adjusting internal numbers called \textbf{parameters} or \textbf{weights}.
+    
+    \vspace{0.3cm}
+    Example of a simple neuron:
+    \[
+    y = w_1x_1 + w_2x_2 + b
+    \]
+    Where:
+    \begin{itemize}
+        \item $x_1, x_2$ = input features
+        \item $w_1, w_2$ = weights (parameters to learn)
+        \item $b$ = bias
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    During training, the model changes these weights so predictions become more accurate.
+\end{frame}
+
+\begin{frame}{2.3 Forward Pass: Making a Prediction}
+    Training a neural network starts with a \textbf{forward pass}.
+    
+    Steps:
     \begin{enumerate}
-        \item \textbf{Prediction:} The AI makes a guess about the future.
-        \item \textbf{Loss Function:} We measure how wrong the guess was. The paper uses the \textbf{L2-loss function}, which heavily penalizes big mistakes.
-        \item \textbf{Optimizer:} A mathematical tool that tweaks the AI's internal math to make the next guess better. The paper uses the \textbf{Adam optimizer}.
-        \item \textbf{Epochs:} One full cycle of training through all the data. This model trained for \textbf{250 epochs}  (it practiced 250 times).
+        \item Input data enters the network.
+        \item Each layer applies a mathematical transformation.
+        \item The network produces a prediction.
     \end{enumerate}
+    
+    Example:
+    \[
+    \text{Past metro data} \rightarrow \text{Neural network} \rightarrow \hat{y} \text{ (predicted ridership)}
+    \]
+    
+    At this stage, the prediction is usually wrong because the weights are not yet trained.
 \end{frame}
 
-\begin{frame}[fragile]{8. Unpacking "Self-Attention" (The Transformer's Secret)}
-    The core of a Transformer network is the \textbf{Self-Attention} layer. 
+\begin{frame}{2.4 Loss Function: Measuring Error}
+    After making a prediction, we measure how wrong it is using a \textbf{loss function}.
     
-    \textit{Analogy: Reading a sentence.}
-    If you read: "The \textbf{bank} of the \textbf{river} was muddy."
+    \vspace{0.3cm}
+    Example used in the paper: L2 loss
+    \[
+    L = (\hat{y} - y)^2
+    \]
+    Where:
+    \begin{itemize}
+        \item $y$ = true historical value
+        \item $\hat{y}$ = AI's predicted value
+    \end{itemize}
     
-    To understand the word "bank", your brain pays \textit{attention} to the word "river" (not a money bank). 
-    
-    In the metro paper, to predict a crowd at 5:00 PM, the Self-Attention mechanism looks at the sequence of past data and learns to assign higher "attention scores" to 4:45 PM and 4:30 PM, realizing those specific past moments are the most relevant clues.
+    \vspace{0.3cm}
+    Goal of training: \textbf{Minimize the loss.} The smaller the loss, the better the prediction.
 \end{frame}
 
-\begin{frame}{9. Decoding the "Baselines" (The Competitors)}
-    The paper compares its new ISA-TF model against older models (baselines) to prove it is better. Here is what they are in simple terms:
+% --- PART 3: TRAINING MECHANICS (HOW IT LEARNS) ---
+
+\begin{frame}[fragile]{3.1 What is Backpropagation?}
+    \small
+    \textbf{The Concept:}
+    If the "Forward Pass" is guessing, \textbf{Backpropagation} is learning from the mistake. It sends the error backwards to update the weights.
+
+    \begin{verbatim}
+    1. FORWARD (Guessing):
+       Data ---> [Weight A] ---> [Weight B] ---> Guess (100 people)
+                                                 Real Answer (150) 
+                                                 ERROR = 50
+    
+    2. BACKWARD (Learning via Backpropagation):
+       Data <--- [Update A] <--- [Update B] <--- ERROR = 50
+                 (Blame A)       (Blame B)
+    \end{verbatim}
 
     \begin{itemize}
-        \item \textbf{HM (Historical Mean):} The simplest method. It just calculates the average of past ridership to guess the future. 
-        \item \textbf{GB (Gradient Boosting):} A classic machine learning method that combines many "weak" decision trees to make a strong prediction.
-        \item \textbf{MLP (Multi-Layer Perceptron):} A standard, basic artificial neural network.
-        \item \textbf{RNN-GRU:} A recurrent network that processes time step-by-step, but suffers from "forgetting" long-term trends.
+        \item It uses the \textbf{Chain Rule} from calculus to calculate "Gradients".
+        \item It asks: \textit{"How much did Weight B contribute to the error? How about A?"}
+        \item The Optimizer uses this "blame" to tweak the weights.
     \end{itemize}
 \end{frame}
 
-\begin{frame}{10. Why do "Parameters" Matter?}
-    In the results, the paper brags that their model is roughly 3 times more efficient. They prove this by counting \textbf{Parameters}.
+\begin{frame}{3.2 Gradients and Backpropagation (The Math)}
+    To improve predictions, the network adjusts its weights using \textbf{gradients}.
     
-    \begin{itemize}
-        \item Think of parameters as the "gears" or "dials" inside the AI's mathematical engine. 
-        \item The previous best model (PVCGN) needed \textbf{134.14 Million} parameters to work.
-        \item This new ISA-TF model only needs \textbf{47.66 Million} parameters.
-    \end{itemize}
+    A gradient tells us:
+    \begin{quote}
+    "If we slightly change this weight, how will the loss change?"
+    \end{quote}
     
-    \textbf{Why is this good?} A model with fewer parameters trains faster, requires less computer memory, and is easier for a city to actually install and run on their servers!
+    Mathematically:
+    \[
+    \frac{\partial L}{\partial w}
+    \]
+    
+    \textbf{The exact Backpropagation sequence:}
+    1. Compute prediction (Forward Pass) $\rightarrow$ 2. Measure loss $\rightarrow$ 3. Compute gradients (Backward Pass) $\rightarrow$ 4. Update weights. \\
+    This repeats thousands of times.
 \end{frame}
 
-\begin{frame}{11. How AI Learns: The "Mountain" Analogy}
-    Before we define Adam or Epochs, we need to understand the AI's goal.
-    
+\begin{frame}{3.3 How AI Learns: The "Mountain" Analogy}
     Imagine the AI is standing at the top of a mountain, blindfolded. 
     \begin{itemize}
-        \item The \textbf{top of the mountain} represents being 100\% wrong (high error/loss).
-        \item The \textbf{bottom of the valley} represents being 100\% right (zero error).
+        \item \textbf{Top of the mountain:} 100\% wrong (high error/loss).
+        \item \textbf{Bottom of the valley:} 100\% right (zero error).
     \end{itemize}
     
     The AI wants to walk down to the bottom. 
     \begin{itemize}
-        \item The \textbf{Loss Function} (like the L2-loss in the paper) tells the AI how high up the mountain it currently is.
+        \item The \textbf{Loss Function} tells the AI how high up the mountain it currently is.
         \item The \textbf{Optimizer} is the strategy the AI uses to feel the ground with its foot and decide which direction to step next to go downhill.
     \end{itemize}
-    
 \end{frame}
 
-\begin{frame}{12. What is the Adam Optimizer?}
+\begin{frame}{3.4 What is the Adam Optimizer?}
+    An \textbf{Optimizer} is the mathematical engine that updates the weights based on the gradients. 
     
-    An \textbf{Optimizer} is the mathematical engine that updates the AI's internal numbers (parameters) after it makes a guess. 
-    
-    \textbf{Adam} stands for \textit{Adaptive Moment Estimation}. It is currently one of the most popular and powerful optimizers in the world. 
+    \textbf{Adam} (Adaptive Moment Estimation) is a popular, smart optimizer.
     \begin{itemize}
-        \item Instead of taking the same size step every time, Adam is \textit{smart}. 
+        \item Instead of taking the same size step every time, Adam adapts.
         \item If the mountain is steep, Adam takes big, fast steps. 
         \item If the AI feels it is getting close to the bottom (the right answer), Adam automatically takes tiny, careful steps so it doesn't overshoot the target.
     \end{itemize}
 \end{frame}
 
-\begin{frame}{13. What is an Epoch?}
-    The paper mentions the training "lasted for 250 epochs".
-    
-    Think of the training data (the historical metro ridership) as a giant stack of flashcards. 
-    
-    \begin{itemize}
-        \item An \textbf{Epoch} is exactly ONE full pass through the entire stack of flashcards.
-        \item If the AI only looks at the flashcards once (1 epoch), it won't remember much. It will still make bad predictions.
-        \item To get smart, the AI needs to see the same data over and over again. 
-        \item By running \textbf{250 epochs}, the authors forced the AI to review the entire Shanghai and Hangzhou metro histories 250 times until it had memorized the underlying patterns perfectly! 
-    \end{itemize}
-\end{frame}
+\begin{frame}{3.5 Epochs and The Training Loop}
+    \textbf{What is an Epoch?}
+    Think of the historical metro dataset as a giant stack of flashcards. An \textbf{Epoch} is exactly ONE full pass through the entire stack. This model trained for \textbf{250 epochs} (it reviewed the history 250 times).
 
-\begin{frame}{14. Putting the Training Loop Together}
-    Here is the exact cycle of how the ISA-TF model was trained:
-    
+    \vspace{0.2cm}
+    \textbf{The Full Training Loop:}
     \begin{enumerate}
-        \item \textbf{Guess:} The AI looks at 60 mins of past metro data and guesses the next 60 mins.
-        \item \textbf{Check Error (Loss):} It compares its guess to the real historical answer using the L2-loss function.
-        \item \textbf{Learn (Adam):} The Adam optimizer looks at the error and tweaks the AI's internal math (parameters) so it will guess better next time.
-        \item \textbf{Repeat (Epochs):} The AI repeats this process for every single piece of data in the dataset. Once it finishes the whole dataset, that is 1 Epoch. It did this 250 times!
+        \item \textbf{Guess:} AI looks at 60 mins of past data, guesses next 60 mins.
+        \item \textbf{Check Error:} Compares guess to the real answer (L2-loss).
+        \item \textbf{Learn:} Backpropagation finds gradients; Adam tweaks weights.
+        \item \textbf{Repeat:} Do this for all data (1 Epoch). Repeat 250 times!
     \end{enumerate}
 \end{frame}
 
+% --- PART 4: VANISHING GRADIENTS & ACTIVATION FUNCTIONS ---
 
-\begin{frame}{A.1 What is Convolution?}
+\begin{frame}[fragile]{4.1 How Gradients Flow \& Why They Vanish}
+    \small
+    During training, the error signal travels backward. Each layer multiplies the gradient by a fraction. If many layers are stacked, the gradient shrinks rapidly.
 
-\textbf{Definition:}  
-Convolution is a mathematical operation that extracts local patterns from data by sliding a small filter (kernel) over the input.
+    \begin{verbatim}
+    Layer 4 gradient = 1.0 × 0.5 = 0.5
+    Layer 3 gradient = 0.5 × 0.5 = 0.25
+    Layer 2 gradient = 0.25 × 0.5 = 0.125
+    Layer 1 gradient = 0.125 × 0.5 = 0.0625  <-- Almost Zero!
+    \end{verbatim}
 
-\begin{itemize}
-    \item Commonly used in \textbf{images, signals, and time series}.
-    \item Allows neural networks to detect features like:
+    \textbf{The Vanishing Gradient Problem:}
+    When gradients become extremely small near the input layers:
     \begin{itemize}
-        \item Edges or textures in images
-        \item Spikes or trends in time series
+        \item Weight updates become tiny.
+        \item Early layers stop learning entirely.
+        \item Training becomes very slow or stalls.
     \end{itemize}
-\end{itemize}
-
 \end{frame}
 
-\begin{frame}{A.2 Convolution Formula}
+\begin{frame}{4.2 Activation Functions in Neural Networks}
+    \textbf{Motivation:}
+    Neural networks naturally apply simple linear transformations (straight lines). If only linear operations were used, the network could never learn complex patterns (like sudden crowd spikes at a metro).
 
-For a 1D signal:
-
-\[
-y(t) = \sum_{i=0}^{k-1} x(t+i) \cdot w(i)
-\]
-
-\begin{itemize}
-    \item \(x(t)\) = input signal
-    \item \(w(i)\) = filter (kernel)
-    \item \(k\) = kernel size
-    \item \(y(t)\) = output at position \(t\)
-\end{itemize}
-
-\end{frame}
-
-
-\begin{frame}{A.3 Convolution Example}
-
-Input signal: \([2, 4, 6, 8]\)  
-
-Kernel: \([1, 0]\)  
-
-Sliding window computation:
-
-\[
-(2 \cdot 1 + 4 \cdot 0) = 2
-\]
-\[
-(4 \cdot 1 + 6 \cdot 0) = 4
-\]
-\[
-(6 \cdot 1 + 8 \cdot 0) = 6
-\]
-
-\textbf{Output:} \([2, 4, 6]\)
-
-\end{frame}
-
-\begin{frame}{A.4 Convolution Intuition}
-
-\begin{itemize}
-    \item Convolution can be seen as a “pattern detector” that scans the data.
-    \item The kernel highlights where a certain feature occurs.
-    \item Advantages:
+    \vspace{0.3cm}
+    \textbf{Solution: Activation Functions}
     \begin{itemize}
-        \item Detects local patterns efficiently
-        \item Reduces parameters compared to fully connected layers
-        \item Works well with structured data like images or time series
+        \item Activation functions introduce \textbf{nonlinearity}.
+        \item They act as "gates" deciding if a neuron should fire or not.
+        \item Without them, deep networks are useless; with them, networks can approximate almost any complex real-world data curve.
     \end{itemize}
-\end{itemize}
-
 \end{frame}
 
+\begin{frame}[fragile]{4.3 Sigmoid vs. ReLU}
+    \small
+    Older models used the \textbf{Sigmoid} function (an S-curve between 0 and 1). At the flat edges of the curve, the slope is nearly 0. This caused massive Vanishing Gradients.
 
-
-\begin{frame}{0.1 Why Slide [5/12] is Directly from the Paper}
-    \textbf{Section III-B (Metro Network Representation Graphs)} motivates exactly this point:
+    \textbf{The Fix: ReLU (Rectified Linear Unit)}
+    $$ReLU(x) = \max(0, x)$$
     \begin{itemize}
-        \item A graph built only from physical/geographical links is not enough for metro flow patterns.
-        \item The model therefore uses \textbf{three complementary graph views} of station relations.
-        \item This is what slide [5/12] summarizes as:
-        \begin{itemize}
-            \item Physical topology view (local adjacency)
-            \item Enhanced inter-station relation view (non-local dependencies)
-        \end{itemize}
+        \item If $x \leq 0$, output is 0. If $x > 0$, output is $x$.
+        \item Because the slope for positive numbers is a constant straight line, gradients flow perfectly without shrinking.
     \end{itemize}
+
+    \vspace{-0.2cm}
+    \begin{verbatim}
+    ReLU    |       /     Gradient is constant for positive inputs.
+            |      /      This stops gradients from vanishing!
+            |_____/
+            +-------------
+    \end{verbatim}
+\end{frame}
+
+% --- PART 5: GRAPH THEORY BASICS ---
+
+\begin{frame}[fragile]{5.1 Graph Theory: Mapping the Metro}
+    In Big Data, we represent networks using \textbf{Graphs}. This paper uses THREE different graphs to give the AI the full picture:
+    
+    \begin{verbatim}
+    1. Physical Graph     2. Semantic Graph     3. Correlation Graph
+    (Physical Tracks)     (Similar Behaviors)   (Actual Travel Routes)
+    
+       A --- B                A       B            A ===== B
+       |     |                |       |             \     /
+       C --- D                C       D              C   D
+    (Who is next door?)   (Who is busy at the   (Where do people
+                           same time?)           actually travel?)
+    \end{verbatim}
+    
+    An \textbf{Edge Weight} is a number showing how strongly two stations are connected in these specific views.
+\end{frame}
+
+\begin{frame}{5.2 Physical ($M_p$) \& Semantic ($M_s$) Graphs}
+    \small
+    \textbf{Physical Edge Weight ($M_p$):} 
+    Are these stations directly connected by a train track?
+    \begin{itemize}
+        \item Base score is 1 if connected, 0 if not. Formula standardizes it to fractions.
+        \item \textit{Why it matters:} Captures direct crowd spillover to the next station.
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{Semantic Similarity ($M_s$) \& DTW:}
+    Do these stations have the same "vibe"? (e.g., two business districts far apart that both peak at 5:00 PM).
+    \begin{itemize}
+        \item Uses \textbf{Dynamic Time Warping (DTW)}: An algorithm that matches similar time-series curves even if one is slightly delayed.
+        \item \textit{Why it matters:} Connects stations based on human behavior, not geography.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{5.3 Correlation Matrix ($M_c$)}
+    \textbf{Correlation Matrix ($M_c$):}
+    Are people actually riding the train directly from Station A to Station B? 
+    
+    \begin{itemize}
+        \item The physical graph shows the tracks.
+        \item The semantic graph shows the schedule/behavior.
+        \item \textbf{The correlation graph shows the actual humans.} It counts total travels starting at A and ending at B.
+    \end{itemize}
+    
+    \textbf{The Math:} 
+    Takes trips between A and B ($R_c$) and divides by total trips in network.
+    $$M_{c}(a,b)=\frac{R_{c}(a,b)}{\sum_{k=1}^{N}R_{c}(a,k)}$$
+    
+    \textit{Why it matters:} Directly maps where crowds are flowing in real-time.
+\end{frame}
+
+% --- PART 6: TRANSFORMERS & ATTENTION ---
+
+\begin{frame}{6.1 RNNs vs. Transformers}
+    \textbf{The Old Way: RNNs (Recurrent Neural Networks)}
+    \begin{itemize}
+        \item RNNs read data chronologically, step-by-step.
+        \item \textit{The Flaw:} They struggle to remember old information. They suffer from vanishing gradients over long time horizons.
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{The New Way: Transformers}
+    \begin{itemize}
+        \item Transformers don't read step-by-step. They look at the entire sequence at once.
+        \item They use \textbf{Self-Attention} to score which past time steps are the most important for predicting the future.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{6.2 Embeddings: Converting Data into Vectors}
+    \textbf{Problem:} Neural networks cannot process raw concepts, words, or raw time steps easily.
+    
+    \textbf{Solution:} \textbf{Embeddings} transform each time-step token into a dense vector of real numbers.
+    \begin{itemize}
+        \item Similar data patterns obtain similar vectors in the mathematical space.
+        \item These embeddings become the starting input used to compute \textbf{Query (Q)}, \textbf{Key (K)}, and \textbf{Value (V)} vectors in the Transformer.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{6.3 Unpacking "Self-Attention"}
+    \textit{Analogy: Reading a sentence.}
+    If you read: "The \textbf{bank} of the \textbf{river} was muddy."
+    To understand the word "bank", your brain pays \textit{attention} to the word "river" (not a money bank). 
+    
     \vspace{0.2cm}
-    \footnotesize Source: 2023 IEEE ITSC manuscript, Section III-B.
+    \textbf{Step 1: Q, K, V Vectors}
+    From the embedding, the network creates 3 vectors:
+    \begin{itemize}
+        \item \textbf{Query (Q)} – what the token is looking for.
+        \item \textbf{Key (K)} – what the token represents.
+        \item \textbf{Value (V)} – the actual information the token carries.
+    \end{itemize}
+
+    \textbf{Step 2: Attention Scores}
+    The model computes similarity by multiplying Query and Key ($Q \cdot K$). Higher scores mean the model should pay more attention to that time step.
 \end{frame}
 
-\begin{frame}{0.2 Equation-Level Mapping for Slide [5/12]}
+\begin{frame}[fragile]{6.4 What is Softmax?}
+    \small
+    \textbf{The Concept:} 
+    Softmax is a mathematical function that takes raw, random Attention scores and converts them into \textbf{probabilities} that sum to 1.0 (100\%).
+    
+    \begin{verbatim}
+    Raw Attention Scores        Softmax Math         Final Probabilities
+    
+    Time 4:30 PM:  3.2   --->  e^(3.2) / Sum   --->   84%  (Focus here!)
+    Time 4:45 PM:  1.0   --->  e^(1.0) / Sum   --->   11%  (A little)
+    Time 4:00 PM: -0.5   --->  e^(-0.5) / Sum  --->    5%  (Ignore)
+    
+    TOTAL:         3.7                               100% 
+    \end{verbatim}
+
+    \textbf{Step 3: Final Output}
+    The Softmax probabilities are multiplied by the \textbf{Value (V)} vectors. The AI successfully filters out the noise and focuses 84\% of its computing power on the 4:30 PM data spike!
+\end{frame}
+
+\begin{frame}{6.5 Self-Attention Mechanism (The Math)}
+    \textbf{Computation Summary:}
+    \[
+    \text{Attention}(Q,K,V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+    \]
+    \begin{itemize}
+        \item $Q$ = Query matrix, $K$ = Key matrix, $V$ = Value matrix.
+        \item The dot product $QK^T$ measures similarity between time steps.
+        \item $\sqrt{d_k}$ scales it down so gradients don't explode.
+        \item Softmax converts to weights (summing to 1).
+        \item Result is multiplied by $V$ to get the final representation.
+    \end{itemize}
+\end{frame}
+
+% --- PART 7: ISA-TF ARCHITECTURE ---
+
+\begin{frame}[fragile]{7.1 The Paper's Invention: ISA-TF}
+    The \textbf{Inter-Station-Aware Transformer Networks (ISA-TF)} combines the time-reading power of Transformers with the spatial map of the 3 Graphs.
+    
+    \begin{verbatim}
+    [PAST DATA] --> (ENCODER) --> [FUSION] --> (DECODER) --> [FUTURE DATA]
+    Last 60 mins   Finds Time   Mixes Time     Guesses the   Next 60 mins
+                   Patterns     with 3 Graphs    Future
+    \end{verbatim}
+
+    \begin{itemize}
+        \item \textbf{Encoder:} Uses self-attention to capture time patterns.
+        \item \textbf{Fusion:} Fuses encoder output with the 3 metro graphs.
+        \item \textbf{Decoder:} Predicts the future auto-regressively.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{7.2 Deep Dive: Encoder \& Feed-Forward}
+    \textbf{Encoder:}
+    \begin{itemize}
+        \item Adds "Positional Encoding" so the Transformer knows the order of time (since it doesn't read left-to-right like an RNN).
+        \item Uses Self-Attention to find patterns.
+        \item Passes data through a \textbf{Feed-Forward Neural Network (FFN)}:
+        \[
+        FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2
+        \]
+        \textit{Notice the $\max(0, \dots)$? That is the ReLU activation function preventing vanishing gradients!}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{7.3 Deep Dive: Fusion \& Decoder}
+    \textbf{Intermediate Fusion (Concatenation):}
+    \begin{itemize}
+        \item It simply glues vectors together. 
+        \item Example: $\text{Time Vector } [0.5, 0.2]$ + $\text{Graph Vector } [0.7, 0.1]$ = $\text{Fused Vector } [0.5, 0.2, 0.7, 0.1]$.
+        \item Now the AI understands both TIME and SPACE simultaneously.
+    \end{itemize}
+
+    \vspace{0.2cm}
+    \textbf{Decoder:}
+    \begin{itemize}
+        \item Uses \textbf{Masked} Self-Attention (so it can't "cheat" and look at future answers during training).
+        \item Uses Cross-Attention to look back at the Fused Vector.
+        \item Predicts the next 15 minutes, feeds that prediction back into itself, predicts the next 15 minutes, etc. (Auto-regressive).
+    \end{itemize}
+\end{frame}
+
+% --- PART 8: EVALUATION & BASELINES ---
+
+\begin{frame}{8.1 Evaluation Metrics (RMSE \& MAE)}
+    \textbf{RMSE (Root Mean Square Error):}
+    Heavily punishes large errors because differences are squared before averaging. Good for preventing massive congestion mistakes.
+    $$RMSE=\sqrt{\frac{1}{n}\sum_{i=1}^{n}(\hat{D}_{i}-D_{i})^{2}}$$ 
+
+    \textbf{MAE (Mean Absolute Error):}
+    The simple average of how far off the AI's guesses were.
+    $$MAE=\frac{1}{n}\sum_{i=1}^{n}|\hat{D}_{i}-D_{i}|$$ 
+    
+    \textit{Note: $\hat{D}_{i}$ is predicted ridership, $D_{i}$ is actual ground-truth.}
+\end{frame}
+
+\begin{frame}{8.2 Decoding the "Baselines" (Competitors)}
+    The paper compares ISA-TF against older models:
+    \begin{itemize}
+        \item \textbf{HM (Historical Mean):} Just averages past data.
+        \item \textbf{GB (Gradient Boosting):} A classic ML method combining decision trees.
+        \item \textbf{RNN-GRU:} A recurrent network that processes step-by-step (forgets long-term trends).
+        \item \textbf{DCRNN / PVCGN:} Advanced models that rely on \textit{Convolutions} and graph networks.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{8.3 Why do "Parameters" Matter?}
+    The ISA-TF model uses $\sim$47.6 Million parameters. The previous best model (PVCGN) required $\sim$134 Million.
+    
+    \begin{itemize}
+        \item Think of parameters as the "gears" inside the AI's engine. 
+        \item \textbf{Why fewer is better:} A model with fewer parameters trains faster, uses less RAM/electricity, and is much easier for a city to deploy in the real world while getting the exact same or better accuracy!
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{8.4 Baseline Concept: What is Convolution?}
+    Many baseline models (like DCRNN) use Convolutions instead of Attention.
+    
+    \textbf{Definition:} Convolution slides a small mathematical filter (kernel) over data to extract local patterns.
+    \begin{itemize}
+        \item Example Input: $[2, 4, 6, 8]$
+        \item Filter: $[1, 0]$
+        \item It scans: $(2 \cdot 1 + 4 \cdot 0) = 2 \rightarrow (4 \cdot 1 + 6 \cdot 0) = 4 \dots$
+    \end{itemize}
+    
+    While Convolutions are great for finding local spikes (like an edge in an image), they struggle to connect Station A to Station Z simultaneously, which is why the Transformer's Global Attention usually wins for long-range tasks.
+\end{frame}
+
+% --- PART 9: PAPER SPECIFIC JUSTIFICATIONS ---
+
+\begin{frame}{9.1 Equation-Level Mapping for Slide [5/12]}
     \small
     \textbf{The paper defines three normalized edge-weight matrices (Eq. 1--3):}
     \begin{itemize}
@@ -1433,7 +801,7 @@ Sliding window computation:
         \[
         M_{s}(a,b)=\frac{F_{s}(a,b)}{\sum_{k=1}^{N}F_{s}(a,k)}
         \]
-        \item \textbf{Correlation graph (OD travel interactions)}
+        \item \textbf{Correlation graph (Origin–Destination travel interactions)}
         \[
         M_{c}(a,b)=\frac{R_{c}(a,b)}{\sum_{k=1}^{N}R_{c}(a,k)}
         \]
@@ -1442,7 +810,51 @@ Sliding window computation:
     \footnotesize Interpretation: ISA-TF captures both nearby-station effects and cross-station flow interactions beyond direct physical links.
 \end{frame}
 
+\begin{frame}{9.2 Deep Dive: Physical Topology Graph ($M_p$)}
+    \textbf{The Concept: Geographical Connections}
+    \begin{itemize}
+        \item This graph represents the actual, physical train tracks.
+        \item If Station A and Station B are next to each other on the same line, they get a base score of 1 ($E(a,b)=1$).
+        \item If they are not directly connected, they get a 0.
+    \end{itemize}
 
+    \vspace{0.3cm}
+    \textbf{Why does the AI need this?}
+    \begin{itemize}
+        \item \textbf{Spillover Effect:} Passenger flow naturally moves down the line. If Station A gets extremely crowded at 8:00 AM, the AI uses this graph to predict that the next physical station down the track will likely see a surge a few minutes later.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{9.3 Deep Dive: Semantic Similarity Graph ($M_s$)}
+    \textbf{The Concept: Behavioral Connections}
+    \begin{itemize}
+        \item This graph ignores geography and looks at \textbf{station function}. 
+        \item Example: Two business-district stations on opposite sides of the city might both experience massive outflow at 9:00 AM and massive inflow at 5:00 PM. 
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{How it's calculated: Dynamic Time Warping (DTW)}
+    \begin{itemize}
+        \item DTW is an algorithm that compares the shape of two time-series curves.
+        \item Even if Station A peaks at 5:00 PM and Station B peaks at 5:15 PM, DTW recognizes they share the same "vibe" or pattern and links them mathematically.
+        \item \textbf{Why it matters:} It helps the AI learn city-wide demographic habits.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{9.4 Deep Dive: Correlation Graph ($M_c$)}
+    \textbf{The Concept: Actual Human Movement}
+    \begin{itemize}
+        \item This graph tracks the \textbf{Origin-Destination (OD)} pairs.
+        \item It simply counts how many historical passengers tapped their ticket to enter at Station A, and tapped out to exit at Station B.
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{Why does the AI need this?}
+    \begin{itemize}
+        \item The Physical Graph shows tracks, and the Semantic Graph shows schedules, but the Correlation Graph shows \textbf{actual travel paths}.
+        \item If historical data shows that 40\% of people who leave a stadium at Station A travel directly to a transfer hub at Station B, this graph gives the AI the exact mathematical percentage it needs to predict the crowd at Station B.
+    \end{itemize}
+\end{frame}
 
 
 
