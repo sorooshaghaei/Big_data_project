@@ -691,6 +691,370 @@ FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2
 
 
 
+
+\begin{frame}{What is a Neural Network?}
+
+\textbf{Goal:} Learn a function that maps inputs to outputs.
+
+\vspace{0.3cm}
+
+Example in this paper:
+
+\[
+\text{Past ridership data} \rightarrow \text{Future ridership prediction}
+\]
+
+\vspace{0.3cm}
+
+A neural network is simply a stack of mathematical functions:
+
+\[
+y = f(x)
+\]
+
+where:
+
+\begin{itemize}
+    \item \(x\) = input data
+    \item \(f\) = learned function
+    \item \(y\) = predicted output
+\end{itemize}
+
+\vspace{0.3cm}
+
+Instead of manually designing the function, the network \textbf{learns it from data}.
+\end{frame}
+
+
+\begin{frame}{Weights and Parameters}
+
+Neural networks learn by adjusting internal numbers called \textbf{parameters}.
+
+\vspace{0.3cm}
+
+These parameters are called \textbf{weights}.
+
+\vspace{0.3cm}
+
+Example of a simple neuron:
+
+\[
+y = w_1x_1 + w_2x_2 + b
+\]
+
+Where:
+
+\begin{itemize}
+    \item \(x_1,x_2\) = input features
+    \item \(w_1,w_2\) = weights (parameters to learn)
+    \item \(b\) = bias
+\end{itemize}
+
+\vspace{0.3cm}
+
+During training, the model changes these weights so predictions become more accurate.
+\end{frame}
+
+
+\begin{frame}{Forward Pass: Making a Prediction}
+
+Training a neural network starts with a \textbf{forward pass}.
+
+\vspace{0.3cm}
+
+Steps:
+
+\begin{enumerate}
+    \item Input data enters the network.
+    \item Each layer applies a mathematical transformation.
+    \item The network produces a prediction.
+\end{enumerate}
+
+Example:
+
+\[
+\text{Past metro data} \rightarrow \text{Neural network} \rightarrow \hat{y}
+\]
+
+\[
+\hat{y} = \text{predicted ridership}
+\]
+
+\vspace{0.3cm}
+
+At this stage, the prediction is usually wrong because the weights are not yet trained.
+\end{frame}
+
+
+\begin{frame}{Loss Function: Measuring Error}
+
+After making a prediction, we measure how wrong it is.
+
+\vspace{0.3cm}
+
+This is done using a \textbf{loss function}.
+
+\vspace{0.3cm}
+
+Example used in the paper: L2 loss
+
+\[
+L = (\hat{y} - y)^2
+\]
+
+Where:
+
+\begin{itemize}
+    \item \(y\) = true value
+    \item \(\hat{y}\) = predicted value
+\end{itemize}
+
+\vspace{0.3cm}
+
+Goal of training:
+
+\[
+\textbf{Minimize the loss}
+\]
+
+The smaller the loss, the better the prediction.
+\end{frame}
+
+
+\begin{frame}{Gradients and Backpropagation}
+
+To improve predictions, the network must adjust its weights.
+
+\vspace{0.3cm}
+
+This is done using \textbf{gradients}.
+
+\vspace{0.3cm}
+
+A gradient tells us:
+
+\begin{quote}
+"If we slightly change this weight, how will the loss change?"
+\end{quote}
+
+Mathematically:
+
+\[
+\frac{\partial L}{\partial w}
+\]
+
+
+Training uses \textbf{backpropagation}: \\1. Compute prediction \\2. Measure loss \\3. Compute gradients \\4. Update weights \\
+
+This process repeats thousands of times until the model improves.
+\end{frame}
+
+\begin{frame}[fragile]{What is Softmax?}
+    \textbf{The Concept:} 
+    Softmax is a mathematical function that takes raw, random scores and converts them into \textbf{probabilities} that sum to 1.0 (or 100\%).
+    
+    \begin{verbatim}
+    Raw Attention Scores        Softmax Math         Final Probabilities
+    
+    Station A:  3.2   ----->   e^(3.2) / Sum   ----->   84%  (Focus here!)
+    Station B:  1.0   ----->   e^(1.0) / Sum   ----->   11%  (A little)
+    Station C: -0.5   ----->   e^(-0.5) / Sum  ----->    5%  (Ignore)
+    
+    TOTAL:      3.7                                    100% 
+    \end{verbatim}
+
+    \vspace{0.1cm}
+    \textbf{The Formula:}
+    $$\text{Softmax}(x_{i}) = \frac{e^{x_{i}}}{\sum_{j} e^{x_{j}}}$$
+\end{frame}
+
+\begin{frame}[fragile]{What is Backpropagation?}
+    \textbf{The Concept:}
+    If the "Forward Pass" is the AI taking a guess, \textbf{Backpropagation} is the AI learning from its mistake. It sends the error backwards through the network to update the weights.
+
+    \begin{verbatim}
+    1. FORWARD (Guessing):
+       Input Data  ---> [Weight A] ---> [Weight B] ---> Guess (100 passengers)
+                                                        Real Answer (150) 
+                                                        ERROR = 50
+    
+    2. BACKWARD (Learning via Backpropagation):
+       Input Data  <--- [Update A] <--- [Update B] <--- ERROR = 50
+                        (Blame A)       (Blame B)
+    \end{verbatim}
+
+    \begin{itemize}
+        \item It uses the \textbf{Chain Rule} from calculus to calculate "Gradients".
+        \item It asks: \textit{"How much did Weight B contribute to the error? How much did Weight A contribute?"}
+        \item Once it assigns the blame, the Optimizer (like Adam) tweaks the weights so the network is smarter for the next guess.
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}{The Vanishing Gradient Problem}
+
+In deep neural networks, gradients must travel through many layers.
+
+\vspace{0.3cm}
+
+Sometimes these gradients become extremely small.
+
+\[
+\text{gradient} \approx 0
+\]
+
+\vspace{0.3cm}
+
+When this happens:
+
+\begin{itemize}
+    \item Weight updates become tiny
+    \item Early layers stop learning
+    \item Training becomes very slow
+\end{itemize}
+
+\vspace{0.3cm}
+
+This issue is called the \textbf{vanishing gradient problem}.
+\end{frame}
+
+
+\begin{frame}{Why Activation Functions Help}
+
+Without activation functions, neural networks would behave like simple linear models.
+
+\vspace{0.3cm}
+
+Activation functions introduce \textbf{nonlinearity}.
+
+\vspace{0.3cm}
+
+They allow networks to learn complex patterns such as:
+
+\begin{itemize}
+    \item nonlinear trends
+    \item sudden spikes in ridership
+    \item long temporal dependencies
+\end{itemize}
+
+\vspace{0.3cm}
+
+Some activation functions (like sigmoid) can worsen the vanishing gradient problem.
+
+Modern models often use \textbf{ReLU} instead.
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]{How Gradients Flow in a Neural Network}
+
+During training, the error signal travels backward through the network.
+
+\begin{verbatim}
+
+Forward pass
+
+Input → Layer1 → Layer2 → Layer3 → Output
+
+
+Backward pass (gradients)
+
+Input ← Layer1 ← Layer2 ← Layer3 ← Output
+        0.8       0.5       0.2
+
+\end{verbatim}
+
+Each layer multiplies the gradient by a small number.
+
+If many layers are stacked, the gradient can shrink rapidly.
+
+\end{frame}
+
+
+\begin{frame}[fragile]{Why Gradients Vanish}
+
+Imagine each layer multiplies the gradient by 0.5.
+
+\begin{verbatim}
+
+Layer 5 gradient = 1.0
+
+Layer 4 gradient = 1.0 × 0.5 = 0.5
+Layer 3 gradient = 0.5 × 0.5 = 0.25
+Layer 2 gradient = 0.25 × 0.5 = 0.125
+Layer 1 gradient = 0.125 × 0.5 = 0.0625
+
+\end{verbatim}
+
+By the time the gradient reaches early layers, it is almost zero.
+
+This means early layers barely learn.
+
+\end{frame}
+
+
+\begin{frame}[fragile]{Vanishing Gradient Visualization}
+
+\begin{verbatim}
+
+Layer2(gradient = 0.25) ← Layer3(gradient = 0.5) ← Output(gradient = 1.0)
+Input(gradient = 0.0625) ← Layer1(gradient = 0.125) ←
+\end{verbatim}
+
+Early layers(near the input) receive almost no learning signal.
+
+\end{frame}
+
+
+\begin{frame}[fragile]{Sigmoid and Vanishing Gradients}
+
+Sigmoid squashes values between 0 and 1.
+
+\begin{verbatim}
+
+    Sigmoid curve(any S-shaped mathematical function)
+
+1  |       ______ (barely moves → learning stops.)
+   |     /
+0.5|----/
+   |   /
+   |  /
+0  +----------------
+
+\end{verbatim}
+
+At the edges of the curve, the slope(The slope tells us how fast a function changes) is very small.
+
+Small slope → tiny gradients → vanishing gradients.
+
+\end{frame}
+
+
+\begin{frame}[fragile]{Why ReLU Helps $(Rectified Linear Unit)$}
+
+ReLU keeps gradients large for positive values.\\
+
+
+\begin{verbatim}
+
+ReLU    Output
+        |
+        |       /     Gradient is constant for positive inputs.
+        |      /      This allows gradients to flow through many layers.
+        |     /
+        |____/
+        |
+        +-------------
+
+\end{verbatim}
+
+\end{frame}
+
+
+
+
+
 \begin{frame}{Activation Functions in Neural Networks}
 
 \textbf{Motivation}
@@ -1038,6 +1402,44 @@ Sliding window computation:
     \end{itemize}
 \end{itemize}
 
+\end{frame}
+
+
+
+\begin{frame}{0.1 Why Slide [5/12] is Directly from the Paper}
+    \textbf{Section III-B (Metro Network Representation Graphs)} motivates exactly this point:
+    \begin{itemize}
+        \item A graph built only from physical/geographical links is not enough for metro flow patterns.
+        \item The model therefore uses \textbf{three complementary graph views} of station relations.
+        \item This is what slide [5/12] summarizes as:
+        \begin{itemize}
+            \item Physical topology view (local adjacency)
+            \item Enhanced inter-station relation view (non-local dependencies)
+        \end{itemize}
+    \end{itemize}
+    \vspace{0.2cm}
+    \footnotesize Source: 2023 IEEE ITSC manuscript, Section III-B.
+\end{frame}
+
+\begin{frame}{0.2 Equation-Level Mapping for Slide [5/12]}
+    \small
+    \textbf{The paper defines three normalized edge-weight matrices (Eq. 1--3):}
+    \begin{itemize}
+        \item \textbf{Physical topology graph}
+        \[
+        M_{p}(a,b)=\frac{E(a,b)}{\sum_{k=1}^{N}E(a,k)}
+        \]
+        \item \textbf{Semantic similarity graph (DTW-based)}
+        \[
+        M_{s}(a,b)=\frac{F_{s}(a,b)}{\sum_{k=1}^{N}F_{s}(a,k)}
+        \]
+        \item \textbf{Correlation graph (OD travel interactions)}
+        \[
+        M_{c}(a,b)=\frac{R_{c}(a,b)}{\sum_{k=1}^{N}R_{c}(a,k)}
+        \]
+    \end{itemize}
+    \vspace{0.2cm}
+    \footnotesize Interpretation: ISA-TF captures both nearby-station effects and cross-station flow interactions beyond direct physical links.
 \end{frame}
 
 
