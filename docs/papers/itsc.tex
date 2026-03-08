@@ -63,7 +63,7 @@
 
 \title[ISA-TF Paper]{Metro Ridership Forecasting using Inter-Station-Aware Transformer Networks}
 \subtitle{Big Data Course Presentation (10 minutes max)}
-\author[Team of 4]{Nima DAVARI \and Maksym DOLHOV \and Hồ Báo Khánh Nguyễn \and Mehdi AGHAEI}
+\author[Team of 4]{Maksym DOLHOV \and Mehdi AGHAEI \and Hồ Báo Khánh Nguyễn \and Nima DAVARI}
 \institute[Big Data Course]{Big Data Course}
 \date{\today}
 
@@ -102,7 +102,7 @@
 % ------------------------- Presenter 1 -------------------------
 \section{Presenter 1}
 
-\begin{frame}{[1/14] Problem Context (Presenter 1)}\hypertarget{sec:problem}{}
+\begin{frame}{[1/12] Problem Context (Presenter 1)}\hypertarget{sec:problem}{}
 
   \begin{itemize}
     \item Metro systems need station-level inflow/outflow forecasts for operations.
@@ -117,7 +117,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{[2/14] Research Gap and Paper Idea (Presenter 1)}
+\begin{frame}{[2/12] Research Gap and Paper Idea (Presenter 1)}
   \begin{itemize}
     \item Prior methods include statistical, machine learning, and hybrid approaches.
     \item Many RNN/GCN-based methods are strong for short horizon but can degrade for longer horizon.
@@ -126,7 +126,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{[3/14] Claimed Contributions (Presenter 1)}
+\begin{frame}{[3/12] Claimed Contributions (Presenter 1)}
   \begin{itemize}
     \item New \textbf{Inter-Station-Aware Transformer Networks} architecture.
     \item Uses three metro graph views: physical, semantic similarity, and correlation.
@@ -135,10 +135,10 @@
   \end{itemize}
 \end{frame}
 
-% ------------------------- Presenter 2 -------------------------
+% ------------------------- Presenter 2: Soroosh -------------------------
 \section{Presenter 2}
 
-\begin{frame}{[4/14] Problem Formulation (Presenter 2)}
+\begin{frame}{[4/12] Problem Formulation (presenter 2: Soroosh)}
 \hypertarget{sec:architecture}{}
   \begin{itemize}
     \item Input: past ridership sequence and metro graph:
@@ -153,7 +153,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{[5/14] Metro Graph Representation (Presenter 2)}
+\begin{frame}[fragile]{[5/12] Metro Graph Representation (Presenter 2: Soroosh)}
   \textbf{Three Complementary Graph Views:}
   
   \begin{verbatim}
@@ -177,7 +177,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{[6/14] ISA-TF Architecture (Presenter 2)}
+\begin{frame}{[6/12] ISA-TF Architecture (Presenter 2: Soroosh)}
   \begin{itemize}
     \item Transformer encoder–decoder backbone
     \item Encoder processes historical ridership
@@ -198,7 +198,7 @@
 % ------------------------- Presenter 3 -------------------------
 \section{Presenter 3}
 
-\begin{frame}{[7/14] Datasets (Presenter 3)}
+\begin{frame}{[7/12] Datasets (Presenter 3)}
 \hypertarget{sec:experiments}{}
   \begin{table}
     \centering
@@ -219,7 +219,7 @@
   \small SHMetro has 811.8M recorded transactions.
 \end{frame}
 
-\begin{frame}{[8/14] Experimental Setup (Presenter 3)}
+\begin{frame}{[8/12] Experimental Setup (Presenter 3)}
   \begin{itemize}
     \item Preprocessing creates the three graph types per dataset.
     \item Training details: Adam optimizer, 250 epochs, \(L_2\) loss.
@@ -229,7 +229,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{[9/14] Main Results (Presenter 3)}
+\begin{frame}{[9/12] Main Results (Presenter 3)}
   \small
   \begin{table}
     \centering
@@ -256,7 +256,7 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
 % ------------------------- Presenter 4 -------------------------
 \section{Presenter 4}
 
-\begin{frame}{[10/14] Efficiency Comparison (Presenter 4)}
+\begin{frame}{[10/12] Efficiency Comparison (Presenter 4)}
   \begin{columns}[T,totalwidth=\textwidth]
     \column{0.56\textwidth}
       \centering
@@ -272,7 +272,7 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
   \footnotesize Source: values reported by the paper (Figure 2 discussion and results section).
 \end{frame}
 
-\begin{frame}{[11/14] Do We Need All 3 Graphs?}
+\begin{frame}{[11/12] Do We Need All 3 Graphs? (Presenter 4)}
   \hypertarget{sec:discussion}{}
   \textbf{Question:} Is the complex 3-graph fusion actually necessary?
   
@@ -289,28 +289,7 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
   \textbf{\color{plumNight}Conclusion:} The synergy of all three graphs is the secret to ISA-TF's long-term accuracy.
 \end{frame}
 
-\begin{frame}{[12/14] Real-World Impact: Smart City Integration}
-  How does a 45-to-60 minute accurate forecast actually help a city?
-
-  \vspace{0.3cm}
-  \begin{itemize}
-    \item \textbf{Proactive Crowd Control:} If the AI predicts a massive surge at Station A in 45 minutes, operators can dispatch empty reserve trains \textit{before} the platform becomes dangerously crowded.
-    \item \textbf{Energy Optimization:} Heating, ventilation, and air conditioning (HVAC) systems can pre-cool stations based on incoming predicted body heat, saving massive amounts of electricity.
-    \item \textbf{Dynamic Staffing:} Security and ticketing staff can be dynamically routed to stations right before predicted inflow peaks.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{[13/14] Limitations \& Future Directions}
-  While ISA-TF is highly efficient, there are areas for improvement:
-  
-  \begin{itemize}
-    \item \textbf{Missing Exogenous Variables:} The current model only looks at past ridership. It ignores weather (rain massively shifts transit use), holidays, and special events (concerts/sports).
-    \item \textbf{Lack of Uncertainty Bounds:} ISA-TF provides \textit{point forecasts} (e.g., "Exactly 1,200 people will enter"). For critical city planning, \textit{probabilistic forecasts} (e.g., "Between 1,100 and 1,300 people") are safer.
-    \item \textbf{Generalization limits:} Evaluated only on Chinese megacities (Shanghai/Hangzhou). Metro layouts in older cities like Paris or New York may yield different topological behaviors.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{[14/14] Conclusion \& Key Takeaways}
+\begin{frame}{[12/12] Conclusion \& Key Takeaways (Presenter 4)}
   \begin{itemize}
     \item \textbf{The Problem:} Long-horizon metro forecasting is difficult because passenger flow relies on complex spatial and temporal rules.
     \item \textbf{The Solution (ISA-TF):} Fuses the long-memory power of \textbf{Transformers} with a \textbf{3-Graph topology network} (Physical, Semantic, Correlation).
