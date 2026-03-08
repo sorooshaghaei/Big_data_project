@@ -907,4 +907,246 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
 
 
 
+% --- PART 11: PYTHON IMPLEMENTATIONS ---
+
+\begin{frame}[fragile]{11.1 Python Code: Building the Physical Graph ($M_p$)}
+  \textbf{Scenario:} We have 3 stations. A connects to B. B connects to A and C. C connects to B.
+  \begin{verbatim}
+  import numpy as np
+
+  # Adjacency matrix (1 if track exists, 0 otherwise)
+  # Stations: A, B, C
+  E = np.array([
+      [0, 1, 0],  # A connects to B
+      [1, 0, 1],  # B connects to A and C
+      [0, 1, 0]   # C connects to B
+  ])
+
+  # Normalize by row sum to get Mp
+  row_sums = E.sum(axis=1, keepdims=True)
+  M_p = E / row_sums
+  \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{11.2 Output \& Explanation: Physical Graph}
+  \textbf{Output:}
+  \begin{verbatim}
+  [[0.  1.  0. ]
+   [0.5 0.  0.5]
+   [0.  1.  0. ]]
+  \end{verbatim}
+  \textbf{Explanation:}
+  \begin{itemize}
+      \item \textbf{Row 1 (Station A):} 100\% of its spillover influence goes to B.
+      \item \textbf{Row 2 (Station B):} Its spillover is split 50/50 between A and C.
+      \item \textbf{Row 3 (Station C):} 100\% of its spillover influence goes to B.
+  \end{itemize}
+  \textit{This perfectly executes the paper's formula: $M_p(a,b) = \frac{E(a,b)}{\sum E(a,k)}$}
+\end{frame}
+
+\begin{frame}[fragile]{11.3 Python Code: Calculating L2 Loss (MSE)}
+  \textbf{Scenario:} AI predicts metro ridership, we compare it to the actual truth.
+  \begin{verbatim}
+  import numpy as np
+
+  y_true = np.array([150, 200, 50])  # Actual passengers
+  y_pred = np.array([140, 210, 60])  # AI Predictions
+
+  # Calculate L2 Loss (Mean Squared Error)
+  errors = y_pred - y_true
+  squared_errors = errors ** 2
+  mse = np.mean(squared_errors)
+
+  print(f"Errors: {errors}")
+  print(f"Squared Errors: {squared_errors}")
+  print(f"MSE (L2 Loss): {mse}")
+  \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{11.4 Output \& Explanation: L2 Loss}
+  \textbf{Output:}
+  \begin{verbatim}
+  Errors: [-10  10  10]
+  Squared Errors: [100 100 100]
+  MSE (L2 Loss): 100.0
+  \end{verbatim}
+  \textbf{Explanation:}
+  \begin{itemize}
+      \item The AI was off by exactly 10 passengers for each station.
+      \item We square the errors ($-10 \times -10 = 100$) so negative and positive errors don't cancel each other out to zero.
+      \item The average of $[100, 100, 100]$ is 100. 
+      \item The \textbf{RMSE}(root mean squared error) would simply be $\sqrt{100} = 10$ passengers off on average.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{11.5 Python Code: Self-Attention ($Q \times K^T$)}
+  \textbf{Scenario:} Calculate unnormalized attention scores for 2 time steps.
+  \begin{verbatim}
+  import numpy as np
+
+  # Time 1 (T1) and Time 2 (T2) Embeddings
+  # Q and K are 1x2 vectors for each time step
+  Q = np.array([[1.0, 0.5],   # T1 Query
+                [0.0, 1.0]])  # T2 Query
+                
+  K = np.array([[1.0, 0.0],   # T1 Key
+                [0.0, 1.0]])  # T2 Key
+
+  # Dot Product: Q * K^T (Matrix Multiplication)
+  scores = np.dot(Q, K.T)
+  print(scores)
+  \end{verbatim}
+\end{frame}
+
+% --- PART 12: STEP-BY-STEP MATH BREAKDOWNS ---
+
+\begin{frame}{12.1 Math by Hand: Softmax Calculation}
+  \textbf{Scenario:} We have raw attention scores for Station A: $x_1 = 2.0$, $x_2 = 1.0$, $x_3 = 0.0$. Let's convert them to percentages.
+  
+  \vspace{0.2cm}
+  \textbf{Step 1: Calculate Exponentials ($e^x$)} (Assume $e \approx 2.718$)
+  \begin{itemize}
+      \item $e^{2.0} \approx 7.39$
+      \item $e^{1.0} \approx 2.72$
+      \item $e^{0.0} = 1.00$
+  \end{itemize}
+  
+  \textbf{Step 2: Sum the Exponentials}
+  $$ \Sigma = 7.39 + 2.72 + 1.00 = 11.11 $$
+  
+  \textbf{Step 3: Divide each by the sum to get probabilities}
+  \begin{itemize}
+      \item $P_1 = 7.39 / 11.11 \approx 0.665$ (\textbf{66.5\%})
+      \item $P_2 = 2.72 / 11.11 \approx 0.245$ (\textbf{24.5\%})
+      \item $P_3 = 1.00 / 11.11 \approx 0.090$ (\textbf{9.0\%})
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{12.2 Math by Hand: $Q \times K^T$ (Dot Product)}
+  \textbf{Goal:} Understand how the dot product finds similarity between time sequences. 
+  
+  Suppose Query for Time 1 is $Q_1 = [2, 1]$ and Key for Time 2 is $K_2 = [1, 1]$.
+  
+  \vspace{0.3cm}
+  \textbf{The Dot Product Formula:}
+  $$ Q_1 \cdot K_2 = (Q_{1,1} \times K_{2,1}) + (Q_{1,2} \times K_{2,2}) $$
+  
+  \textbf{Calculation:}
+  $$ (2 \times 1) + (1 \times 1) = 2 + 1 = 3 $$
+  
+  \vspace{0.3cm}
+  \textbf{Interpretation:}
+  The similarity score is $3$. If $K_2$ was completely opposite, say $[-2, -1]$, the score would be $-5$. The higher the positive number, the more the AI pays \textit{attention} to that specific time step!
+\end{frame}
+
+% --- PART 13: ACTIVE LEARNING (TEST YOURSELF) ---
+
+\begin{frame}{13.1 Active Learning: Test Your L2 Loss Knowledge}
+  \textbf{Question 1: Calculate the MSE (L2 Loss) by hand.}
+  
+  You are testing the ISA-TF model on two stations for the 8:00 AM interval.
+  \begin{itemize}
+      \item \textbf{Ground Truth ($y$):} Station A = 500, Station B = 300
+      \item \textbf{AI Prediction ($\hat{y}$):} Station A = 480, Station B = 310
+  \end{itemize}
+  
+  \vspace{0.4cm}
+  \textit{Use the formula:}
+  $$ MSE = \frac{1}{n} \sum (\hat{y}_i - y_i)^2 $$
+  
+  \vspace{0.4cm}
+  \textbf{Task:} Find the errors, square them, and find the mean. (Answer on next slide).
+\end{frame}
+
+\begin{frame}{13.2 Solution: L2 Loss Calculation}
+  \textbf{Step 1: Calculate raw errors}
+  \begin{itemize}
+      \item Station A error: $480 - 500 = -20$
+      \item Station B error: $310 - 300 = 10$
+  \end{itemize}
+  
+  \textbf{Step 2: Square the errors}
+  \begin{itemize}
+      \item Station A squared: $(-20)^2 = 400$
+      \item Station B squared: $(10)^2 = 100$
+  \end{itemize}
+  
+  \textbf{Step 3: Average them (Mean)}
+  $$ MSE = \frac{400 + 100}{2} = \frac{500}{2} = \mathbf{250} $$
+  
+  \vspace{0.2cm}
+  \textit{Bonus:} The RMSE (Root Mean Square Error) is $\sqrt{250} \approx 15.8$ passengers.
+\end{frame}
+
+\begin{frame}{13.3 Active Learning: Graph Normalization}
+  \textbf{Question 2: Calculate the Physical Graph Matrix row by hand.}
+  
+  Station X is connected to Station Y, Station Z, and Station W by physical tracks. It is NOT connected to Station V.
+  
+  \vspace{0.2cm}
+  \textbf{Base edge weights ($E$):}
+  \begin{itemize}
+      \item $E(X, Y) = 1$
+      \item $E(X, Z) = 1$
+      \item $E(X, W) = 1$
+      \item $E(X, V) = 0$
+  \end{itemize}
+  
+  \vspace{0.2cm}
+  \textbf{Task:} Calculate the normalized weights $M_p(X, Y)$ and $M_p(X, V)$ using:
+  $$ M_{p}(a,b)=\frac{E(a,b)}{\sum_{k=1}^{N}E(a,k)} $$
+\end{frame}
+
+\begin{frame}{13.4 Solution: Graph Normalization}
+  \textbf{Step 1: Find the denominator (Sum of all connections for Station X)}
+  $$ \sum E = E(X,Y) + E(X,Z) + E(X,W) + E(X,V) $$
+  $$ \sum E = 1 + 1 + 1 + 0 = 3 $$
+  
+  \textbf{Step 2: Calculate specific probabilities}
+  \begin{itemize}
+      \item For Y: $M_p(X, Y) = \frac{1}{3} \approx 0.33$ (\textbf{33.3\% spillover})
+      \item For V: $M_p(X, V) = \frac{0}{3} = \mathbf{0} $ (\textbf{0\% spillover})
+  \end{itemize}
+  
+  \vspace{0.3cm}
+  \textbf{Takeaway:} The model now mathematically knows that 33\% of Station X's spatial influence goes directly to Station Y, but none goes to V.
+\end{frame}
+
+\begin{frame}{13.5 Active Learning: Test Your Softmax Intuition}
+  \textbf{Question 3: Softmax logic without a calculator}
+  
+  You have raw attention scores for three past time intervals (T1, T2, T3). 
+  The raw scores outputted by the dot product are: $T1 = 5.0$, $T2 = 5.0$, $T3 = -10.0$.
+  
+  \vspace{0.4cm}
+  \textbf{Task (Use logic, not math!):}
+  \begin{enumerate}
+      \item Which time interval will get almost \textbf{zero} attention probability?
+      \item What will the approximate probability percentage be for T1 and T2?
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{13.6 Solution: Softmax Intuition}
+  \textbf{1. Which interval gets almost zero attention?}
+  \begin{itemize}
+      \item \textbf{T3}. Because $-10.0$ is exponentially smaller than $5.0$. In Softmax math, $e^{-10}$ is practically zero. The AI will completely ignore T3.
+  \end{itemize}
+  
+  \vspace{0.3cm}
+  \textbf{2. What is the approximate probability for T1 and T2?}
+  \begin{itemize}
+      \item \textbf{50\% each}. Since $T1 = 5.0$ and $T2 = 5.0$, their exponential values are exactly equal. 
+      \item Because T3 is mathematically ignored (0\%), the remaining 100\% attention budget is split perfectly in half between T1 and T2.
+  \end{itemize}
+  
+  \vspace{0.3cm}
+  \textbf{Takeaway:} Softmax acts like a harsh judge. It strongly amplifies the top values and completely squashes the negative/low values!
+\end{frame}
+
+
+
+
+
+
+
 \end{document}
