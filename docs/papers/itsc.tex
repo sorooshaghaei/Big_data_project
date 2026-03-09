@@ -756,6 +756,45 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
     \end{itemize}
 \end{frame}
 
+\begin{frame}[fragile]{7.4 Deep Dive: What is "Autoregressive"?}
+  \textbf{The Concept:}
+  Instead of predicting the entire 60-minute future all at once in one giant guess, an \textbf{autoregressive} model predicts the future step-by-step. It uses its own past predictions as inputs to make the next prediction.
+
+  \vspace{0.2cm}
+  \textbf{The Step-by-Step Loop (15-min intervals):}
+  \begin{verbatim}
+  Step 1: [Real Past 60 mins] --------> Predicts Min 15
+  Step 2: [Past 45 mins + Min 15] ----> Predicts Min 30
+  Step 3: [Past 30 mins + Min 30] ----> Predicts Min 45
+  Step 4: [Past 15 mins + Min 45] ----> Predicts Min 60
+  \end{verbatim}
+
+  \vspace{0.2cm}
+  \textbf{Analogy:} Walking up a staircase in the dark. You have to securely plant your foot on Step 1 before you can reach up to guess exactly where Step 2 is.
+\end{frame}
+
+\begin{frame}[fragile]{7.5 Deep Dive: Autoregressive Python Logic}
+  \textbf{Why do it this way?}
+  It allows the model to predict \textit{any} length of time into the future! However, the risk is \textbf{Error Accumulation}: if the Step 1 guess is slightly wrong, Step 2 will be even more wrong because it is based on bad data.
+
+  \vspace{0.2cm}
+  \textbf{Python Concept:}
+  \begin{verbatim}
+  future_predictions = []
+  current_input = real_past_data  # e.g., 4 steps (60 mins)
+
+  # Loop 4 times to predict 1 hour into the future
+  for step in range(4):
+      # Guess the next 15 mins
+      next_15 = model.predict(current_input)
+      future_predictions.append(next_15)
+
+      # Slide the window forward: 
+      # Drop oldest real data, append newest AI guess
+      current_input = current_input[1:] + [next_15]
+  \end{verbatim}
+\end{frame}
+
 % --- PART 8: EVALUATION & BASELINES ---
 
 \begin{frame}{8.1 Evaluation Metrics (RMSE \& MAE)}
