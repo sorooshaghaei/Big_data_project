@@ -164,28 +164,90 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{[5/12] Metro Graph Representation (Presenter 2: Soroosh)}
-  \textbf{Three Complementary Graph Views:}
-  
-  \begin{verbatim}
-  1. Physical Graph     2. Semantic Graph     3. Correlation Graph
-  (Physical Tracks)     (Similar Behaviors)   (Actual Travel Routes)
-
-     A --- B                A       B            A ===== B
-     |     |                |       |             \     /
-     C --- D                C       D              C   D
-  (Who is next door?)   (Who is busy at the   (Where do people
-                         same time?)           actually travel?)
-  \end{verbatim}
-
-  \vspace{0.35em}
+\begin{frame}{[5/12] Metro Graph Representation (Presenter 2: Soroosh)}
   \small
-  \textbf{Explanation:} A physical map isn't enough to predict crowds. ISA-TF gives the AI three different "views" of the network:
-  \begin{itemize}
-    \item \textbf{Physical ($M_p$):} Captures direct local spillover to the next station.
-    \item \textbf{Semantic ($M_s$):} Links distant stations with similar commuter demographics.
-    \item \textbf{Correlation ($M_c$):} Maps the actual Origin-Destination (OD) human traffic.
-  \end{itemize}
+  \textbf{Three Complementary Graph Views}
+
+  \begin{columns}[T,onlytextwidth]
+    \column{0.32\textwidth}
+      \centering
+      \textbf{Physical Graph}\\
+      {\scriptsize Adjacent tracks}\\[0.35em]
+      \begin{tikzpicture}[
+        x=0.9cm,
+        y=0.7cm,
+        every node/.style={
+          circle,
+          draw=deepInk,
+          fill=softSky,
+          minimum size=0.42cm,
+          inner sep=0pt,
+          font=\scriptsize
+        }
+      ]
+        \node (A) at (0,1) {A};
+        \node (B) at (1,1) {B};
+        \node (C) at (0,0) {C};
+        \node (D) at (1,0) {D};
+        \draw[deepInk, line width=0.9pt] (A) -- (B) -- (D) -- (C) -- (A);
+      \end{tikzpicture}\\[-0.15em]
+      {\scriptsize Local spillover\\between neighbors}
+
+    \column{0.32\textwidth}
+      \centering
+      \textbf{Semantic Graph}\\
+      {\scriptsize Similar behaviors}\\[0.35em]
+      \begin{tikzpicture}[
+        x=0.9cm,
+        y=0.7cm,
+        every node/.style={
+          circle,
+          draw=deepInk,
+          fill=softSky,
+          minimum size=0.42cm,
+          inner sep=0pt,
+          font=\scriptsize
+        }
+      ]
+        \node (A) at (0,1) {A};
+        \node (B) at (1,1) {B};
+        \node (C) at (0,0) {C};
+        \node (D) at (1,0) {D};
+        \draw[candyPink, dashed, line width=1pt] (A) -- (C);
+        \draw[candyPink, dashed, line width=1pt] (B) -- (D);
+      \end{tikzpicture}\\[-0.15em]
+      {\scriptsize Distant stations can\\share demand patterns}
+
+    \column{0.32\textwidth}
+      \centering
+      \textbf{Correlation Graph}\\
+      {\scriptsize Actual travel routes}\\[0.35em]
+      \begin{tikzpicture}[
+        x=0.9cm,
+        y=0.7cm,
+        every node/.style={
+          circle,
+          draw=deepInk,
+          fill=softSky,
+          minimum size=0.42cm,
+          inner sep=0pt,
+          font=\scriptsize
+        }
+      ]
+        \node (A) at (0,1) {A};
+        \node (B) at (1.2,1) {B};
+        \node (C) at (0.3,0) {C};
+        \node (D) at (0.9,0) {D};
+        \draw[sunOrange, line width=1.2pt] (A) -- (B);
+        \draw[sunOrange, line width=1.2pt] (A) -- (D);
+        \draw[sunOrange, line width=1.2pt] (B) -- (C);
+      \end{tikzpicture}\\[-0.15em]
+      {\scriptsize Origin-Destination (OD) flows reveal where\\passengers actually move}
+  \end{columns}
+
+  \medskip
+  \footnotesize
+  ISA-TF combines \(M_p\), \(M_s\), and \(M_c\) because physical adjacency alone does not fully explain crowd dynamics.
 \end{frame}
 
 \begin{frame}{[6/12] ISA-TF Architecture (Presenter 2: Soroosh)}
