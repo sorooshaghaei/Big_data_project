@@ -1,4 +1,0 @@
-\beamer@sectionintoc {1}{Presenter 1}{2}{0}{1}
-\beamer@sectionintoc {2}{Presenter 2}{5}{0}{2}
-\beamer@sectionintoc {3}{Presenter 3}{8}{0}{3}
-\beamer@sectionintoc {4}{Presenter 4}{11}{0}{4}
