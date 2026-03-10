@@ -268,10 +268,11 @@
   \scriptsize ISA-TF Architecture Pipeline
 \end{frame}
 
-% ------------------------- Presenter 3 -------------------------
-\section{Presenter 3}
+% ------------------------- Presenter 3: Khanh -------------------------
+\section{Presenter 3: Khanh}
 
-\begin{frame}{[7/12] Datasets (Presenter 3)}
+
+\begin{frame}{[7/12] Datasets (Presenter 3: Khanh)}
 \hypertarget{sec:experiments}{}
   \begin{table}
     \centering
@@ -280,19 +281,26 @@
       \toprule
       Property & SHMetro & HZMetro \\
       \midrule
-      Period & Jul--Sep 2016 & Jan 1--25, 2019 \\
+      Collection period & Jul--Sep 2016 & Jan 1--25, 2019 \\
       Stations & 288 & 80 \\
       Physical edges & 958 & 248 \\
       Avg daily passengers & 8.82M & 2.35M \\
-      Interval & 15 minutes & 15 minutes \\
+      Sampling interval & 15 minutes & 15 minutes \\
       \bottomrule
     \end{tabular}
   \end{table}
+
+  \vspace{0.25em}
+  \small
+  \textbf{Raw transaction records include:}
+  passenger ID, entry/exit station, and timestamps.
+
   \vspace{0.2em}
-  \small SHMetro has 811.8M recorded transactions.
+  \small
+  SHMetro contains 811.8M transactions.
 \end{frame}
 
-\begin{frame}{[8/12] Experimental Setup (Presenter 3)}
+\begin{frame}{[8/12] Experimental Setup (Presenter 3: Khanh)}
   \begin{itemize}
     \item Preprocessing creates the three graph types per dataset.
     \item Training details: Adam optimizer, 250 epochs, \(L_2\) loss.
@@ -302,7 +310,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{[9/12] Main Results (Presenter 3)}
+\begin{frame}{[9/12] Main Results (Presenter 3: Khanh)}
   \small
   \begin{table}
     \centering
