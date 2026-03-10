@@ -119,6 +119,15 @@ report/**/*.toc
 report/**/*.synctex.gz
 report/**/*.fdb_latexmk
 report/**/*.fls
+presentation/source/**/*.aux
+presentation/source/**/*.bbl
+presentation/source/**/*.blg
+presentation/source/**/*.log
+presentation/source/**/*.out
+presentation/source/**/*.toc
+presentation/source/**/*.synctex.gz
+presentation/source/**/*.fdb_latexmk
+presentation/source/**/*.fls
 
 #################################
 # Optional: common outputs

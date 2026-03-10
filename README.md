@@ -14,6 +14,12 @@ Traffic in this project means **validations / entries / ridership counts**.
 
 ```text
 Big_data_project/
+├── presentation/
+│   ├── metro_ridership_forecasting_isa_tf.pdf
+│   ├── README.md
+│   └── source/
+│       ├── itsc.tex
+│       └── images/
 ├── src/
 │   ├── transport_analytics/
 │   │   ├── config.py
@@ -39,9 +45,19 @@ Big_data_project/
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md
 │   ├── POSTGRES_SETUP.md
-│   └── GIT_NOTEBOOK_FILTER_SETUP.md
+│   ├── GIT_NOTEBOOK_FILTER_SETUP.md
+│   └── papers/
 └── data/processed/
 ```
+
+## Presentation
+
+The professor-facing presentation is here:
+- `presentation/metro_ridership_forecasting_isa_tf.pdf`
+
+Slide source files are here:
+- `presentation/source/itsc.tex`
+- `presentation/source/images/`
 
 ## Datasets
 
@@ -134,7 +150,7 @@ Example SQL analysis queries are in:
 
 ## Bibliography
 
-References are stored in:
+Background paper references are stored in:
 - `docs/papers/citations.txt`
 
 ## Authors
