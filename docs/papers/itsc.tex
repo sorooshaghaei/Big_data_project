@@ -1252,6 +1252,27 @@ ISA-TF performs best on long-horizon prediction (45–60 min).
   \textbf{Takeaway:} Softmax acts like a harsh judge. It strongly amplifies the top values and completely squashes the negative/low values!
 \end{frame}
 
+\begin{frame}{13.7 References Used in This Presentation}
+  \tiny
+  \begin{itemize}
+    \setlength{\itemsep}{0.45em}
+    \item K. Saleh, A.-S. Mihaita, and Y. Ou, ``Metro Ridership Forecasting using Inter-Station-Aware Transformer Networks,'' in \textit{2023 IEEE 26th International Conference on Intelligent Transportation Systems (ITSC)}, pp. 1215--1220, 2023.\\
+    \textcolor{textInk!70}{Used for: the main paper summary, metro graph formulation, ISA-TF pipeline, datasets, quantitative results, and parameter comparison.}
+
+    \item L. Liu, J. Chen, H. Wu, J. Zhen, G. Li, and L. Lin, ``Physical-virtual collaboration modeling for intra-and inter-station metro ridership prediction,'' \textit{IEEE Transactions on Intelligent Transportation Systems}, 23(4):3377--3391, 2020.\\
+    \textcolor{textInk!70}{Used for: the PVCGN baseline and the physical/semantic/correlation graph viewpoint reused in the paper discussion.}
+
+    \item A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin, ``Attention is all you need,'' \textit{Advances in Neural Information Processing Systems}, 30, 2017.\\
+    \textcolor{textInk!70}{Used for: the appendix explanation of transformers, self-attention, Q/K/V, and softmax.}
+
+    \item Y. Li, R. Yu, C. Shahabi, and Y. Liu, ``Diffusion convolutional recurrent neural network: Data-driven traffic forecasting,'' \textit{ICLR 2018}, 2018.\\
+    \textcolor{textInk!70}{Used for: the DCRNN comparison slide and the discussion of graph-convolution baselines.}
+
+    \item L. Bai, L. Yao, S. S. Kanhere, X. Wang, and Q. Z. Sheng, ``Stg2seq: spatial-temporal graph to sequence model for multi-step passenger demand forecasting,'' in \textit{IJCAI 2019}, pp. 1981--1987, 2019.\\
+    \textcolor{textInk!70}{Used for: the baseline table and appendix comparison of earlier sequence/graph forecasting models.}
+  \end{itemize}
+\end{frame}
+
 
 
 
