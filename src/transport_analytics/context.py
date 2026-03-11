@@ -1,3 +1,4 @@
+# Mehdi AGHAEI
 """Calendar and weather context enrichment utilities."""
 
 from __future__ import annotations

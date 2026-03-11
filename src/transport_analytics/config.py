@@ -1,3 +1,4 @@
+# Mehdi AGHAEI
 """Configuration objects for paths and PostgreSQL connection."""
 
 from __future__ import annotations
