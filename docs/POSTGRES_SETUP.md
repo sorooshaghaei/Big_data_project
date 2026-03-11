@@ -57,4 +57,17 @@ export PGPASSWORD=<your_password>
 export PGSCHEMA=transport
 ```
 
-Then `src/transport_analytics/postgres.py` can load `data/processed/*.csv` into PostgreSQL.
+Then `src/transport_analytics/postgres.py` can load the cleaned pipeline outputs into PostgreSQL.
+
+Recommended Python flow:
+
+```python
+from pathlib import Path
+
+from transport_analytics.config import PostgresConfig
+from transport_analytics.pipeline import run_local_pipeline
+from transport_analytics.postgres import write_pipeline_outputs
+
+artifacts = run_local_pipeline(root=Path("."), sample_mode=True)
+write_pipeline_outputs(artifacts, PostgresConfig.from_env())
+```

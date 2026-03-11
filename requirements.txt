@@ -3,5 +3,6 @@ numpy>=2.0
 matplotlib>=3.9
 jupyter>=1.0
 nbconvert>=7.0
+scikit-learn>=1.5
 sqlalchemy>=2.0
 psycopg[binary]>=3.2

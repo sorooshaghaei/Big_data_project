@@ -86,3 +86,35 @@ SELECT
     END AS is_anomaly
 FROM scored
 ORDER BY demand_date;
+
+-- 7) Top stations / lines contributing most to overall traffic.
+SELECT
+    region,
+    source,
+    location_name,
+    SUM(value) AS total_value
+FROM transport.fact_demand
+GROUP BY region, source, location_name
+ORDER BY total_value DESC
+LIMIT 20;
+
+-- 8) Paris vs NYC structural comparison.
+WITH city_daily AS (
+    SELECT
+        demand_date,
+        CASE
+            WHEN region = 'Ile-de-France' THEN 'Paris'
+            ELSE 'NYC'
+        END AS city,
+        SUM(value) AS total_value
+    FROM transport.fact_demand
+    GROUP BY demand_date, city
+)
+SELECT
+    city,
+    AVG(total_value) AS avg_daily_value,
+    STDDEV_POP(total_value) AS std_daily_value,
+    STDDEV_POP(total_value) / NULLIF(AVG(total_value), 0) AS coeff_variation
+FROM city_daily
+GROUP BY city
+ORDER BY city;

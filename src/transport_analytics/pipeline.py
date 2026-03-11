@@ -2,218 +2,274 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from .config import ProjectPaths
+from .context import enrich_daily_with_context
 from .features import add_time_features
-from .io import clean_numeric, parse_any_date, read_table_smart
+from .io import clean_numeric, combine_grouped_frames, iter_table_smart, parse_any_date, read_table_smart
 
 
-def _load_core(paths: ProjectPaths) -> dict[str, pd.DataFrame]:
-    """Load core datasets used by most analyses.
-
-    These datasets are moderate in size compared to the full MTA file.
-    """
-    regularities_fr = pd.read_csv(paths.datasets / "Regularities_by_liaisons_Trains_France.csv")
-    travel_titles = pd.read_csv(paths.datasets / "Travel_titles_validations_in_Paris_and_suburbs.csv")
-    idfm_surface = read_table_smart(paths.datasets / "idfm_validations_surface.csv")
-    tgv_monthly = read_table_smart(paths.idf_data / "regularite-mensuelle-tgv-aqst.csv")
-
-    return {
-        "regularities_fr": regularities_fr,
-        "travel_titles": travel_titles,
-        "idfm_surface": idfm_surface,
-        "tgv_monthly": tgv_monthly,
-    }
+FACT_GROUP_COLS = ["date", "region", "location_id", "location_name", "metric_type", "source"]
 
 
-def _load_mta_daily(paths: ProjectPaths, sample_rows: int | None = 300_000) -> pd.DataFrame:
-    """Load MTA hourly data and aggregate it to daily station-level values."""
-    usecols = [
-        "transit_timestamp",
-        "station_complex_id",
-        "station_complex",
-        "borough",
-        "ridership",
-        "transfers",
-    ]
-    kwargs = {"usecols": usecols, "low_memory": False}
-    if sample_rows is not None:
-        # Sample mode keeps local iteration fast.
-        kwargs["nrows"] = sample_rows
+@dataclass
+class PipelineArtifacts:
+    """Materialized outputs produced by the local analytics pipeline."""
 
-    mta = pd.read_csv(paths.mta_data / "MTA_Subway_Hourly_Ridership__2020-2024.csv", **kwargs)
-
-    # Normalize key fields used in aggregation.
-    # MTA typically uses the explicit format below (month/day/year + 12h clock).
-    ts = pd.to_datetime(mta["transit_timestamp"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
-    missing_ts = ts.isna()
-    if missing_ts.any():
-        # Fallback parser for any rows that do not match the primary format.
-        ts.loc[missing_ts] = parse_any_date(mta.loc[missing_ts, "transit_timestamp"])
-    mta["date"] = ts.dt.floor("D")
-    mta["ridership"] = pd.to_numeric(mta["ridership"], errors="coerce")
-    mta["transfers"] = pd.to_numeric(mta["transfers"], errors="coerce")
-
-    # Daily station-level rollup.
-    return (
-        mta.dropna(subset=["date"])
-        .groupby(["date", "borough", "station_complex_id", "station_complex"], as_index=False)[["ridership", "transfers"]]
-        .sum()
-    )
+    station_fact: pd.DataFrame
+    daily: pd.DataFrame
+    featured: pd.DataFrame
+    enriched: pd.DataFrame
+    calendar: pd.DataFrame
+    weather: pd.DataFrame
+    mta_hourly_profile: pd.DataFrame
+    paris_hourly_profile: pd.DataFrame
+    weather_source: str
 
 
-def _load_idf_nb_files(paths: ProjectPaths, max_files: int = 6, max_rows: int | None = 250_000) -> pd.DataFrame:
-    """Load recent Ile-de-France NB_FER files and normalize schema.
+def _chunk_limit(sample_mode: bool) -> int | None:
+    return 1 if sample_mode else None
 
-    File format changed across years, so we resolve column names dynamically.
-    """
-    base = paths.idf_data
 
-    # Collect both txt and csv variants plus nested 2020 folder.
+def _load_travel_titles_fact(paths: ProjectPaths, sample_mode: bool) -> pd.DataFrame:
+    """Aggregate Kaggle Paris/suburbs validations to daily station level."""
+    partials: list[pd.DataFrame] = []
+    usecols = ["DATE", "STATION_NAME", "ID_REFA_LDA", "NB_VALID"]
+    chunksize = 100_000 if sample_mode else 250_000
+
+    for chunk_idx, chunk in enumerate(iter_table_smart(paths.travel_titles, chunksize=chunksize, usecols=usecols)):
+        chunk["date"] = parse_any_date(chunk["DATE"])
+        chunk["value"] = clean_numeric(chunk["NB_VALID"])
+        chunk["location_id"] = chunk["ID_REFA_LDA"].astype("Int64").astype(str)
+        chunk["location_name"] = chunk["STATION_NAME"].fillna("Unknown station")
+
+        grouped = (
+            chunk.dropna(subset=["date", "value"])
+            .groupby(["date", "location_id", "location_name"], as_index=False)["value"]
+            .sum()
+        )
+        grouped["region"] = "Ile-de-France"
+        grouped["metric_type"] = "validations"
+        grouped["source"] = "travel_titles_paris"
+        partials.append(grouped[FACT_GROUP_COLS + ["value"]])
+
+        if _chunk_limit(sample_mode) is not None and chunk_idx + 1 >= _chunk_limit(sample_mode):
+            break
+
+    return combine_grouped_frames(partials, FACT_GROUP_COLS, ["value"])
+
+
+def _load_idfm_surface_fact(paths: ProjectPaths, sample_mode: bool) -> pd.DataFrame:
+    """Aggregate IDFM surface validations to daily line level."""
+    partials: list[pd.DataFrame] = []
+    usecols = ["JOUR", "ID_GROUPOFLINES", "LIBELLE_LIGNE", "NB_VALD"]
+    chunksize = 100_000 if sample_mode else 250_000
+
+    for chunk_idx, chunk in enumerate(iter_table_smart(paths.idfm_surface, chunksize=chunksize, usecols=usecols)):
+        chunk["date"] = parse_any_date(chunk["JOUR"])
+        chunk["value"] = clean_numeric(chunk["NB_VALD"])
+        chunk["location_id"] = chunk["ID_GROUPOFLINES"].astype(str)
+        chunk["location_name"] = chunk["LIBELLE_LIGNE"].fillna("Unknown line")
+
+        grouped = (
+            chunk.dropna(subset=["date", "value"])
+            .groupby(["date", "location_id", "location_name"], as_index=False)["value"]
+            .sum()
+        )
+        grouped["region"] = "Ile-de-France"
+        grouped["metric_type"] = "validations"
+        grouped["source"] = "idfm_surface"
+        partials.append(grouped[FACT_GROUP_COLS + ["value"]])
+
+        if _chunk_limit(sample_mode) is not None and chunk_idx + 1 >= _chunk_limit(sample_mode):
+            break
+
+    return combine_grouped_frames(partials, FACT_GROUP_COLS, ["value"])
+
+
+def _load_idf_nb_fer_fact(paths: ProjectPaths, sample_mode: bool) -> pd.DataFrame:
+    """Aggregate Ile-de-France rail validations to daily station level."""
+    base = paths.idf_root
     nb_files = sorted(base.glob("data-rf-*/*NB_FER*.txt")) + sorted(base.glob("data-rf-*/*NB_FER*.csv"))
     nb_files += sorted((base / "data-rf-2020" / "data-rf-2020").glob("*NB_FER*.txt"))
-    nb_files = nb_files[-max_files:]
+    if sample_mode:
+        nb_files = nb_files[-4:]
 
     frames: list[pd.DataFrame] = []
     for fp in nb_files:
-        df = read_table_smart(fp, nrows=max_rows)
+        df = read_table_smart(fp)
         df.columns = [c.strip() for c in df.columns]
 
-        # Columns differ by year/version; resolve aliases.
         date_col = "JOUR" if "JOUR" in df.columns else None
-        id_col = (
-            "ID_ZDC"
-            if "ID_ZDC" in df.columns
-            else ("ID_REFA_LDA" if "ID_REFA_LDA" in df.columns else ("lda" if "lda" in df.columns else None))
-        )
+        id_col = next((c for c in ("ID_ZDC", "ID_REFA_LDA", "lda") if c in df.columns), None)
         val_col = "NB_VALD" if "NB_VALD" in df.columns else None
+        name_col = "LIBELLE_ARRET" if "LIBELLE_ARRET" in df.columns else None
 
         if date_col is None or val_col is None:
-            # Skip files that do not match expected schema.
             continue
 
-        frames.append(
-            pd.DataFrame(
-                {
-                    "date": parse_any_date(df[date_col]),
-                    "station_id": df[id_col].astype(str) if id_col else np.nan,
-                    "station_name": df.get("LIBELLE_ARRET", np.nan),
-                    "ticket_category": df.get("CATEGORIE_TITRE", np.nan),
-                    "validations": clean_numeric(df[val_col]),
-                    "source_file": fp.name,
-                }
-            )
+        grouped = pd.DataFrame(
+            {
+                "date": parse_any_date(df[date_col]),
+                "location_id": df[id_col].astype(str) if id_col else "unknown",
+                "location_name": df[name_col].fillna("Unknown station") if name_col else "Unknown station",
+                "value": clean_numeric(df[val_col]),
+            }
         )
+        grouped = grouped.dropna(subset=["date", "value"]).groupby(["date", "location_id", "location_name"], as_index=False)[
+            "value"
+        ].sum()
+        grouped["region"] = "Ile-de-France"
+        grouped["metric_type"] = "validations"
+        grouped["source"] = "idf_nb_fer"
+        frames.append(grouped[FACT_GROUP_COLS + ["value"]])
+
+    return combine_grouped_frames(frames, FACT_GROUP_COLS, ["value"])
+
+
+def _load_mta_fact_and_hourly_profile(paths: ProjectPaths, sample_mode: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Aggregate NYC MTA hourly ridership to daily station level and hourly profiles."""
+    usecols = ["transit_timestamp", "station_complex_id", "station_complex", "borough", "ridership"]
+    daily_partials: list[pd.DataFrame] = []
+    hourly_partials: list[pd.DataFrame] = []
+    chunksize = 1_000_000 if sample_mode else 1_000_000
+
+    for chunk_idx, chunk in enumerate(iter_table_smart(paths.mta_hourly, chunksize=chunksize, usecols=usecols)):
+        ts = pd.to_datetime(chunk["transit_timestamp"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+        missing = ts.isna()
+        if missing.any():
+            ts.loc[missing] = parse_any_date(chunk.loc[missing, "transit_timestamp"])
+
+        chunk["date"] = ts.dt.floor("D")
+        chunk["hour"] = ts.dt.hour
+        chunk["value"] = clean_numeric(chunk["ridership"])
+        chunk["region"] = chunk["borough"].fillna("NYC")
+        chunk["location_id"] = chunk["station_complex_id"].astype(str).str.strip()
+        chunk["location_name"] = chunk["station_complex"].fillna("Unknown station")
+
+        daily_grouped = (
+            chunk.dropna(subset=["date", "value"])
+            .groupby(["date", "region", "location_id", "location_name"], as_index=False)["value"]
+            .sum()
+        )
+        daily_grouped["metric_type"] = "ridership"
+        daily_grouped["source"] = "mta_hourly_agg_daily"
+        daily_partials.append(daily_grouped[FACT_GROUP_COLS + ["value"]])
+
+        hourly_grouped = (
+            chunk.dropna(subset=["hour", "value"])
+            .groupby(["region", "hour"], as_index=False)["value"]
+            .sum()
+        )
+        hourly_partials.append(hourly_grouped)
+
+        if _chunk_limit(sample_mode) is not None and chunk_idx + 1 >= _chunk_limit(sample_mode):
+            break
+
+    daily = combine_grouped_frames(daily_partials, FACT_GROUP_COLS, ["value"])
+    hourly = combine_grouped_frames(hourly_partials, ["region", "hour"], ["value"])
+    if not hourly.empty:
+        hourly["hour_label"] = hourly["hour"].map(lambda h: f"{int(h):02d}:00")
+    return daily, hourly
+
+
+def _load_paris_hourly_profile(paths: ProjectPaths, sample_mode: bool) -> pd.DataFrame:
+    """Aggregate Paris validation share profiles from PROFIL_FER files."""
+    base = paths.idf_root
+    profile_files = sorted(base.glob("data-rf-*/*PROFIL_FER*.txt")) + sorted(base.glob("data-rf-*/*PROFIL_FER*.csv"))
+    if sample_mode:
+        profile_files = profile_files[-4:]
+
+    frames: list[pd.DataFrame] = []
+    for fp in profile_files:
+        df = read_table_smart(fp)
+        df.columns = [c.strip() for c in df.columns]
+
+        hour_col = "TRNC_HORR_60" if "TRNC_HORR_60" in df.columns else None
+        val_col = "pourc_validations" if "pourc_validations" in df.columns else None
+        day_col = "CAT_JOUR" if "CAT_JOUR" in df.columns else None
+        if hour_col is None or val_col is None:
+            continue
+
+        out = pd.DataFrame(
+            {
+                "day_category": df[day_col].astype(str) if day_col else "all_days",
+                "hour_bin": df[hour_col].astype(str),
+                "validation_share_pct": clean_numeric(df[val_col]),
+            }
+        )
+        out = out.dropna(subset=["hour_bin", "validation_share_pct"])
+        frames.append(out)
 
     if not frames:
-        return pd.DataFrame(columns=["date", "station_id", "station_name", "ticket_category", "validations", "source_file"])
-    return pd.concat(frames, ignore_index=True)
+        return pd.DataFrame(columns=["day_category", "hour_bin", "validation_share_pct"])
+
+    combined = pd.concat(frames, ignore_index=True)
+    return combined.groupby(["day_category", "hour_bin"], as_index=False)["validation_share_pct"].mean()
 
 
-def build_canonical_fact_table(paths: ProjectPaths, sample_mode: bool = True) -> pd.DataFrame:
-    """Build canonical facts from all available project datasets."""
-    core = _load_core(paths)
-    travel_titles = core["travel_titles"].copy()
-    idfm_surface = core["idfm_surface"].copy()
+def build_station_fact_table(paths: ProjectPaths, sample_mode: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build canonical station/line fact table plus hourly profile helper tables."""
+    travel_titles = _load_travel_titles_fact(paths, sample_mode=sample_mode)
+    idfm_surface = _load_idfm_surface_fact(paths, sample_mode=sample_mode)
+    idf_nb_fer = _load_idf_nb_fer_fact(paths, sample_mode=sample_mode)
+    mta_daily, mta_hourly = _load_mta_fact_and_hourly_profile(paths, sample_mode=sample_mode)
+    paris_hourly = _load_paris_hourly_profile(paths, sample_mode=sample_mode)
 
-    # Standardize date/count fields across heterogeneous sources.
-    travel_titles["date"] = parse_any_date(travel_titles["DATE"])
-    travel_titles["validations"] = clean_numeric(travel_titles["NB_VALID"])
-
-    idfm_surface["date"] = parse_any_date(idfm_surface["JOUR"])
-    idfm_surface["validations"] = clean_numeric(idfm_surface["NB_VALD"])
-
-    # Optional sample mode for very large raw files.
-    idf_nb = _load_idf_nb_files(
-        paths,
-        max_files=6 if sample_mode else 100,
-        max_rows=250_000 if sample_mode else None,
-    )
-    mta_daily = _load_mta_daily(paths, sample_rows=300_000 if sample_mode else None)
-
-    # Convert each source to one canonical schema.
-    facts = [
-        pd.DataFrame(
-            {
-                "date": travel_titles["date"],
-                "region": "Ile-de-France",
-                "location_id": travel_titles["ID_REFA_LDA"].astype(str),
-                "location_name": travel_titles["STATION_NAME"],
-                "metric_type": "validations",
-                "value": travel_titles["validations"],
-                "source": "travel_titles_paris",
-            }
-        ),
-        pd.DataFrame(
-            {
-                "date": idfm_surface["date"],
-                "region": "Ile-de-France",
-                "location_id": idfm_surface.get("ID_GROUPOFLINES", pd.Series([np.nan] * len(idfm_surface))).astype(str),
-                "location_name": idfm_surface.get("LIBELLE_LIGNE", pd.Series([np.nan] * len(idfm_surface))),
-                "metric_type": "validations",
-                "value": idfm_surface["validations"],
-                "source": "idfm_surface",
-            }
-        ),
-        pd.DataFrame(
-            {
-                "date": mta_daily["date"],
-                "region": mta_daily["borough"].fillna("NYC"),
-                "location_id": mta_daily["station_complex_id"].astype(str),
-                "location_name": mta_daily["station_complex"],
-                "metric_type": "ridership",
-                "value": mta_daily["ridership"],
-                "source": "mta_hourly_agg_daily",
-            }
-        ),
-    ]
-
-    # Include IDF station-level validations if available.
-    if not idf_nb.empty:
-        facts.append(
-            pd.DataFrame(
-                {
-                    "date": idf_nb["date"],
-                    "region": "Ile-de-France",
-                    "location_id": idf_nb["station_id"].astype(str),
-                    "location_name": idf_nb["station_name"],
-                    "metric_type": "validations",
-                    "value": idf_nb["validations"],
-                    "source": "idf_nb_fer",
-                }
-            )
-        )
-
-    # Final canonical table cleanup.
-    fact = pd.concat(facts, ignore_index=True)
-    fact["date"] = pd.to_datetime(fact["date"], errors="coerce").dt.floor("D")
-    fact["value"] = pd.to_numeric(fact["value"], errors="coerce")
-    fact = fact.dropna(subset=["date", "value"])
-    return fact
+    station_fact = pd.concat([travel_titles, idfm_surface, idf_nb_fer, mta_daily], ignore_index=True)
+    station_fact["date"] = pd.to_datetime(station_fact["date"], errors="coerce").dt.floor("D")
+    station_fact["value"] = pd.to_numeric(station_fact["value"], errors="coerce")
+    station_fact = station_fact.dropna(subset=["date", "value"])
+    station_fact = station_fact.groupby(FACT_GROUP_COLS, as_index=False)["value"].sum()
+    return station_fact, mta_hourly, paris_hourly
 
 
-def run_local_pipeline(root: Path, sample_mode: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Run local processing and save daily + featured tables to data/processed."""
-    paths = ProjectPaths(root=root)
-
-    # Build canonical fact table from raw sources.
-    fact = build_canonical_fact_table(paths=paths, sample_mode=sample_mode)
-
-    # Create daily aggregates used by modeling/monitoring.
+def build_daily_fact_table(station_fact: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate canonical fact rows to daily series used in modeling."""
     daily = (
-        fact.groupby(["date", "region", "source", "metric_type"], as_index=False)["value"]
+        station_fact.groupby(["date", "region", "source", "metric_type"], as_index=False)["value"]
         .sum()
         .sort_values(["source", "region", "date"])
     )
+    return daily.reset_index(drop=True)
 
-    # Add lag/rolling/calendar features.
+
+def persist_pipeline_outputs(paths: ProjectPaths, artifacts: PipelineArtifacts) -> None:
+    """Persist materialized pipeline outputs into `data/processed/`."""
+    artifacts.station_fact.to_csv(paths.processed / "station_fact_table.csv", index=False)
+    artifacts.daily.to_csv(paths.processed / "daily_fact_table.csv", index=False)
+    artifacts.featured.to_csv(paths.processed / "daily_fact_table_featured.csv", index=False)
+    artifacts.enriched.to_csv(paths.processed / "daily_fact_table_enriched.csv", index=False)
+    artifacts.calendar.to_csv(paths.processed / "dim_calendar.csv", index=False)
+    artifacts.weather.to_csv(paths.processed / "dim_weather.csv", index=False)
+    artifacts.mta_hourly_profile.to_csv(paths.processed / "nyc_hourly_profile.csv", index=False)
+    artifacts.paris_hourly_profile.to_csv(paths.processed / "paris_hourly_profile.csv", index=False)
+
+
+def run_local_pipeline(root: Path, sample_mode: bool = True) -> PipelineArtifacts:
+    """Run local processing and save canonical + enriched tables."""
+    paths = ProjectPaths(root=root)
+
+    station_fact, mta_hourly_profile, paris_hourly_profile = build_station_fact_table(paths=paths, sample_mode=sample_mode)
+    daily = build_daily_fact_table(station_fact)
     featured = add_time_features(daily)
+    enriched, calendar, weather, weather_source = enrich_daily_with_context(featured, paths)
 
-    # Persist outputs for downstream notebooks and SQL loading.
-    daily.to_csv(paths.processed / "daily_fact_table.csv", index=False)
-    featured.to_csv(paths.processed / "daily_fact_table_featured.csv", index=False)
-    return daily, featured
+    artifacts = PipelineArtifacts(
+        station_fact=station_fact,
+        daily=daily,
+        featured=featured,
+        enriched=enriched,
+        calendar=calendar,
+        weather=weather,
+        mta_hourly_profile=mta_hourly_profile,
+        paris_hourly_profile=paris_hourly_profile,
+        weather_source=weather_source,
+    )
+    persist_pipeline_outputs(paths, artifacts)
+    return artifacts

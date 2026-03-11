@@ -34,13 +34,14 @@ Big_data_project/
 │   ├── 02_views.sql
 │   └── 03_analytics_examples.sql
 ├── notebooks/
-│   ├── 00_python_numpy_matplotlib_pandas_pyspark_bootcamp.ipynb
-│   ├── 01_data_analytics_pipeline.ipynb
-│   ├── 02_papers_summary.ipynb
-│   ├── 03_data_science_big_data_sql_foundations.ipynb
-│   └── 04_sql_active_learning_practice.ipynb
+│   └── transport_analytics_workbook.ipynb
+├── report/
+│   ├── transport_analytics_compendium.tex
+│   ├── figures/
+│   └── results/
 ├── scripts/
 │   ├── strip_notebook_metadata.py
+│   ├── build_report_figures.py
 │   └── setup_git_filters.sh
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md
@@ -58,6 +59,20 @@ The professor-facing presentation is here:
 Slide source files are here:
 - `presentation/source/itsc.tex`
 - `presentation/source/images/`
+
+## Main Workbook
+
+The main project notebook is now:
+- `notebooks/transport_analytics_workbook.ipynb`
+
+The consolidated LaTeX companion document is:
+- `report/transport_analytics_compendium.tex`
+
+Analytical outputs from Stage 1 + Stage 2 are written to:
+- `report/results/`
+
+Report figures are written to:
+- `report/figures/`
 
 ## Datasets
 
@@ -91,20 +106,16 @@ In short:
 
 ## Quick start
 
-1. Run analytics notebook:
-   - `notebooks/00_python_numpy_matplotlib_pandas_pyspark_bootcamp.ipynb`
-   - Start here for full Python/data stack foundations + practice
+1. Run the cleaned workflow:
+   - `../.venv/bin/python scripts/run_stage_workflow.py --sample`
 
-2. Run analytics notebook:
-   - `notebooks/01_data_analytics_pipeline.ipynb`
+2. Read the consolidated notebook:
+   - `notebooks/transport_analytics_workbook.ipynb`
 
-3. Learn project SQL and DS basics:
-   - `notebooks/03_data_science_big_data_sql_foundations.ipynb`
+3. Read the LaTeX report:
+   - `report/transport_analytics_compendium.tex`
 
-4. Practice SQL actively:
-   - `notebooks/04_sql_active_learning_practice.ipynb`
-
-5. Setup PostgreSQL:
+4. Setup PostgreSQL:
    - follow `docs/POSTGRES_SETUP.md`
    - run `sql/01_schema.sql`, then `sql/02_views.sql`
 
@@ -134,16 +145,28 @@ Beginner guide:
 from pathlib import Path
 from transport_analytics.pipeline import run_local_pipeline
 
-daily, featured = run_local_pipeline(root=Path("."), sample_mode=True)
+artifacts = run_local_pipeline(root=Path("."), sample_mode=True)
 ```
 
 This writes:
+- `data/processed/station_fact_table.csv`
 - `data/processed/daily_fact_table.csv`
 - `data/processed/daily_fact_table_featured.csv`
+- `data/processed/daily_fact_table_enriched.csv`
+- `data/processed/dim_calendar.csv`
+- `data/processed/dim_weather.csv`
 
 ## PostgreSQL usage
 
 Use `src/transport_analytics/postgres.py` for programmatic loading.
+
+Programmatic loading now supports the full cleaned pipeline outputs:
+
+```python
+from transport_analytics.postgres import write_pipeline_outputs
+
+write_pipeline_outputs(artifacts, pg_config)
+```
 
 Example SQL analysis queries are in:
 - `sql/03_analytics_examples.sql`

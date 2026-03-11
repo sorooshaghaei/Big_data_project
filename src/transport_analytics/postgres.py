@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import PostgresConfig
+from .pipeline import PipelineArtifacts
 
 
 def _load_sqlalchemy():
@@ -31,12 +32,11 @@ def execute_sql_file(sql_path: Path, pg: PostgresConfig) -> None:
     sql = sql_path.read_text(encoding="utf-8")
     engine = create_engine(pg.sqlalchemy_url)
 
-    # Use a transaction block so schema/view updates are atomic.
     with engine.begin() as conn:
         conn.execute(text(sql))
 
 
-def write_fact_table(
+def write_dataframe(
     df: pd.DataFrame,
     table_name: str,
     pg: PostgresConfig,
@@ -45,6 +45,34 @@ def write_fact_table(
     """Write a pandas DataFrame into PostgreSQL."""
     create_engine, _ = _load_sqlalchemy()
     engine = create_engine(pg.sqlalchemy_url)
-
-    # `method="multi"` batches inserts for better throughput.
     df.to_sql(table_name, engine, schema=pg.schema, if_exists=if_exists, index=False, method="multi")
+
+
+def write_fact_table(
+    df: pd.DataFrame,
+    table_name: str,
+    pg: PostgresConfig,
+    if_exists: str = "append",
+) -> None:
+    """Backward-compatible alias for writing one table."""
+    write_dataframe(df=df, table_name=table_name, pg=pg, if_exists=if_exists)
+
+
+def write_pipeline_outputs(artifacts: PipelineArtifacts, pg: PostgresConfig, replace: bool = True) -> None:
+    """Load the cleaned pipeline outputs into PostgreSQL tables."""
+    mode = "replace" if replace else "append"
+    write_dataframe(artifacts.station_fact.rename(columns={"date": "demand_date"}), "fact_demand", pg, if_exists=mode)
+    write_dataframe(
+        artifacts.calendar.rename(columns={"date": "calendar_date"})[
+            ["calendar_date", "year", "month", "day_of_week", "is_weekend", "is_holiday", "holiday_name"]
+        ],
+        "dim_calendar",
+        pg,
+        if_exists=mode,
+    )
+    write_dataframe(
+        artifacts.weather.rename(columns={"date": "weather_date", "weather_source": "source"}),
+        "dim_weather",
+        pg,
+        if_exists=mode,
+    )

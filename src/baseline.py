@@ -12,13 +12,10 @@ from transport_analytics.pipeline import run_local_pipeline
 
 
 if __name__ == "__main__":
-    # Resolve project root from this file location.
     project_root = Path(__file__).resolve().parents[1]
-
-    # Run in sample mode by default for quick iteration.
-    daily, featured = run_local_pipeline(root=project_root, sample_mode=True)
-
-    # Print compact execution summary.
+    artifacts = run_local_pipeline(root=project_root, sample_mode=True)
     print("Pipeline done")
-    print("daily rows:", len(daily))
-    print("featured rows:", len(featured))
+    print("station rows:", len(artifacts.station_fact))
+    print("daily rows:", len(artifacts.daily))
+    print("featured rows:", len(artifacts.featured))
+    print("enriched rows:", len(artifacts.enriched))

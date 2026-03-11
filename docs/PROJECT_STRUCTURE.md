@@ -6,12 +6,14 @@ This project is now organized for reusability, PostgreSQL integration, and clear
 
 - `presentation/`
   - Final presentation PDF for the professor plus LaTeX source assets under `presentation/source/`.
+- `notebooks/`
+  - One primary workbook: `notebooks/transport_analytics_workbook.ipynb`.
+- `report/`
+  - One full LaTeX report plus generated figures and method outputs.
 - `src/transport_analytics/`
-  - Reusable Python package for loading, normalization, feature engineering, and pipeline orchestration.
+  - Reusable Python package for chunked ingestion, normalization, feature engineering, context enrichment, and analysis methods.
 - `sql/`
   - PostgreSQL schema, views, and analytics query examples.
-- `notebooks/`
-  - Analysis, learning, and practice notebooks (start with `00_...`).
 - `docs/papers/`
   - Background research papers and bibliography notes.
 - `data/processed/`
@@ -23,7 +25,9 @@ This project is now organized for reusability, PostgreSQL integration, and clear
 
 ## Suggested workflow
 
-1. Explore and learn with notebooks.
-2. Build canonical tables with Python pipeline.
-3. Load into PostgreSQL.
-4. Query with SQL views and analytics scripts.
+1. Run `scripts/run_stage_workflow.py --sample`.
+2. Start with `notebooks/transport_analytics_workbook.ipynb`.
+3. Use `report/transport_analytics_compendium.tex` for the full Stage 1 + Stage 2 written report.
+4. Inspect `report/results/` for generated method outputs.
+5. Load the cleaned outputs into PostgreSQL.
+6. Query with SQL views and analytics scripts.

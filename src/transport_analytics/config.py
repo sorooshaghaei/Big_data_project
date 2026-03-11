@@ -9,51 +9,74 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class ProjectPaths:
-    """Filesystem paths used by the pipeline.
+    """Filesystem paths used by the project workflow."""
 
-    Keeping paths in one dataclass avoids hardcoding path strings in
-    multiple modules and makes the pipeline easier to reuse.
-    """
-
-    # Absolute path to the project root directory.
     root: Path
 
     @property
     def datasets(self) -> Path:
-        # Static/secondary datasets downloaded into /datasets.
         return self.root / "datasets"
 
     @property
     def data(self) -> Path:
-        # Main data directory containing raw and processed data.
         return self.root / "data"
 
     @property
-    def idf_data(self) -> Path:
-        # Ile-de-France source datasets.
-        return self.data / "Ile_de_france"
-
-    @property
-    def mta_data(self) -> Path:
-        # NYC MTA source datasets.
-        return self.data / "soroosh_MTA"
-
-    @property
     def processed(self) -> Path:
-        # Ensure output directory exists before returning it.
         out = self.data / "processed"
         out.mkdir(parents=True, exist_ok=True)
         return out
 
+    @property
+    def report(self) -> Path:
+        out = self.root / "report"
+        out.mkdir(parents=True, exist_ok=True)
+        return out
+
+    @property
+    def report_results(self) -> Path:
+        out = self.report / "results"
+        out.mkdir(parents=True, exist_ok=True)
+        return out
+
+    @property
+    def report_figures(self) -> Path:
+        out = self.report / "figures"
+        out.mkdir(parents=True, exist_ok=True)
+        return out
+
+    @property
+    def idf_root(self) -> Path:
+        return self.data / "Ile_de_france"
+
+    @property
+    def mta_data(self) -> Path:
+        return self.data / "soroosh_MTA"
+
+    @property
+    def travel_titles(self) -> Path:
+        return self.datasets / "Travel_titles_validations_in_Paris_and_suburbs.csv"
+
+    @property
+    def idfm_surface(self) -> Path:
+        return self.datasets / "idfm_validations_surface.csv"
+
+    @property
+    def regularities_fr(self) -> Path:
+        return self.datasets / "Regularities_by_liaisons_Trains_France.csv"
+
+    @property
+    def mta_hourly(self) -> Path:
+        return self.mta_data / "MTA_Subway_Hourly_Ridership__2020-2024.csv"
+
+    @property
+    def weather_daily(self) -> Path:
+        return self.data / "weather_daily.csv"
+
 
 @dataclass(frozen=True)
 class PostgresConfig:
-    """PostgreSQL connection settings.
-
-    Defaults follow the shared project PostgreSQL host.
-    Prefer using environment variables via `from_env()` so credentials
-    are not hardcoded.
-    """
+    """PostgreSQL connection settings."""
 
     host: str = "34.155.143.75"
     port: int = 5432
@@ -64,7 +87,6 @@ class PostgresConfig:
 
     @property
     def sqlalchemy_url(self) -> str:
-        # SQLAlchemy URL used by create_engine.
         return (
             f"postgresql+psycopg://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
@@ -72,7 +94,6 @@ class PostgresConfig:
 
     @classmethod
     def from_env(cls) -> "PostgresConfig":
-        # Read config from standard PG* environment variables.
         return cls(
             host=os.getenv("PGHOST", "34.155.143.75"),
             port=int(os.getenv("PGPORT", "5432")),
