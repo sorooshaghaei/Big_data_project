@@ -1,8 +1,8 @@
 # Mehdi AGHAEI
-"""Compatibility entry point for baseline pipeline runs.
+"""Legacy compatibility entry point for old local pipeline runs.
 
 This script is intentionally small: it keeps the old entry point while
-routing execution to the new reusable package.
+routing execution to the old local-file pipeline.
 """
 
 from __future__ import annotations

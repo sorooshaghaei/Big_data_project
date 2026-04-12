@@ -3,10 +3,9 @@
 PostgreSQL-first reusable project for public transport demand analytics.
 
 Main goals:
-- build a canonical fact table from raw transit datasets
+- build a canonical analytical layer from PostgreSQL transport tables
 - analyze daily/hourly usage patterns
 - support forecasting and anomaly detection
-- enrich demand with weather and holidays
 
 Traffic in this project means **validations / entries / ridership counts**.
 
@@ -45,10 +44,8 @@ Big_data_project/
 │   └── setup_git_filters.sh
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md
-│   ├── POSTGRES_SETUP.md
 │   ├── GIT_NOTEBOOK_FILTER_SETUP.md
 │   └── papers/
-└── data/processed/
 ```
 
 ## Presentation
@@ -74,50 +71,37 @@ Analytical outputs from Stage 1 + Stage 2 are written to:
 Report figures are written to:
 - `report/figures/`
 
-## Datasets
+## Source Data On PostgreSQL
 
-Main dataset (hourly):
-- MTA Subway Hourly Ridership (2020-2024)
-  https://data.ny.gov/Transportation/MTA-Subway-Hourly-Ridership-2020-2024/wujg-7c2s
+Stage 1 assumes source truth already exists on PostgreSQL in `public`.
 
-Secondary datasets:
-- Ile-de-France Mobilites daily validations (surface network)
-  https://data.iledefrance-mobilites.fr/explore/dataset/validations-reseau-surface-nombre-validations-par-jour-1er-trimestre/
-- Public transport traffic data in France (Kaggle)
-  https://www.kaggle.com/datasets/gatandubuc/public-transport-traffic-data-in-france
+Primary uploaded tables discovered during Stage 0:
 
-## `data/` vs `datasets/`
+- `public.idfm`
+- `public.idfm_daily_validations`
+- `public.idfm_hourly_profiles`
+- `public.mta`
+- `public.mta_hourly_ridership`
 
-These two folders have different roles:
-
-- `data/`
-  - Main project storage for raw and generated data.
-  - Includes large raw sources (for example `data/soroosh_MTA/...`) and processed outputs (`data/processed/...`).
-  - Think: **working data area**.
-
-- `datasets/`
-  - Curated secondary datasets downloaded by project scripts.
-  - Usually smaller, cleaner CSV inputs used for comparative analysis.
-  - Think: **packaged dataset inputs**.
-
-In short:
-- `data/` = raw + processed pipeline data
-- `datasets/` = curated external dataset files
+The project now builds an analytical contract in the `transport` schema on top of those source tables.
 
 ## Quick start
 
-1. Run the cleaned workflow:
-   - `../.venv/bin/python scripts/run_stage_workflow.py --sample`
+1. Load PostgreSQL credentials:
+   - `set -a; source .env; set +a`
 
-2. Read the consolidated notebook:
+2. Apply the Stage 1 SQL contract:
+   - `psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f sql/01_schema.sql`
+   - `psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f sql/02_views.sql`
+
+3. Run the PostgreSQL-backed workflow:
+   - `python3 scripts/run_stage_workflow.py`
+
+4. Read the consolidated notebook:
    - `notebooks/transport_analytics_workbook.ipynb`
 
-3. Read the LaTeX report:
+5. Read the LaTeX report:
    - `report/transport_analytics_compendium.tex`
-
-4. Setup PostgreSQL:
-   - follow `docs/POSTGRES_SETUP.md`
-   - run `sql/01_schema.sql`, then `sql/02_views.sql`
 
 Project PostgreSQL/pgAdmin entry:
 - `http://34.155.143.75/pgadmin4/browser/`
@@ -139,33 +123,18 @@ bash scripts/setup_git_filters.sh --normalize
 Beginner guide:
 - `docs/GIT_NOTEBOOK_FILTER_SETUP.md`
 
-## Python pipeline usage
+## PostgreSQL-backed Python usage
 
 ```python
 from pathlib import Path
-from transport_analytics.pipeline import run_local_pipeline
 
-artifacts = run_local_pipeline(root=Path("."), sample_mode=True)
-```
+from transport_analytics.config import PostgresConfig
+from transport_analytics.postgres import load_postgres_artifacts
+from transport_analytics.methods import run_stage_workflow
 
-This writes:
-- `data/processed/station_fact_table.csv`
-- `data/processed/daily_fact_table.csv`
-- `data/processed/daily_fact_table_featured.csv`
-- `data/processed/daily_fact_table_enriched.csv`
-- `data/processed/dim_calendar.csv`
-- `data/processed/dim_weather.csv`
-
-## PostgreSQL usage
-
-Use `src/transport_analytics/postgres.py` for programmatic loading.
-
-Programmatic loading now supports the full cleaned pipeline outputs:
-
-```python
-from transport_analytics.postgres import write_pipeline_outputs
-
-write_pipeline_outputs(artifacts, pg_config)
+pg = PostgresConfig.from_env()
+artifacts = load_postgres_artifacts(pg)
+outputs = run_stage_workflow(artifacts, root=Path("."))
 ```
 
 Example SQL analysis queries are in:

@@ -1,5 +1,5 @@
 # Mehdi AGHAEI
-"""PostgreSQL loading utilities."""
+"""PostgreSQL utilities for the Stage 1 DB-backed workflow."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import PostgresConfig
+from .features import add_time_features
 from .pipeline import PipelineArtifacts
 
 
@@ -35,6 +36,20 @@ def execute_sql_file(sql_path: Path, pg: PostgresConfig) -> None:
 
     with engine.begin() as conn:
         conn.execute(text(sql))
+
+
+def read_sql_query(
+    query: str,
+    pg: PostgresConfig,
+    *,
+    parse_dates: list[str] | None = None,
+) -> pd.DataFrame:
+    """Read a SQL query result into a pandas DataFrame."""
+    create_engine, text = _load_sqlalchemy()
+    engine = create_engine(pg.sqlalchemy_url)
+
+    with engine.begin() as conn:
+        return pd.read_sql_query(text(query), conn, parse_dates=parse_dates)
 
 
 def write_dataframe(
@@ -76,4 +91,79 @@ def write_pipeline_outputs(artifacts: PipelineArtifacts, pg: PostgresConfig, rep
         "dim_weather",
         pg,
         if_exists=mode,
+    )
+
+
+def load_postgres_artifacts(pg: PostgresConfig) -> PipelineArtifacts:
+    """Load Stage 1 analysis artifacts directly from PostgreSQL views."""
+    station_fact = read_sql_query(
+        """
+        SELECT
+            demand_date AS date,
+            region,
+            location_id,
+            location_name,
+            metric_type,
+            value,
+            source
+        FROM transport.fact_demand
+        ORDER BY demand_date, city, region, source, location_name
+        """,
+        pg,
+        parse_dates=["date"],
+    )
+
+    daily = read_sql_query(
+        """
+        SELECT
+            demand_date AS date,
+            region,
+            source,
+            metric_type,
+            total_value AS value
+        FROM transport.v_daily_demand
+        ORDER BY demand_date, city, region, source, metric_type
+        """,
+        pg,
+        parse_dates=["date"],
+    )
+
+    featured = add_time_features(daily)
+    enriched = featured.copy()
+
+    nyc_hourly = read_sql_query(
+        """
+        SELECT
+            region,
+            hour,
+            hour_label,
+            hourly_total AS value
+        FROM transport.v_nyc_hourly_profile
+        ORDER BY region, hour
+        """,
+        pg,
+    )
+
+    paris_hourly = read_sql_query(
+        """
+        SELECT
+            day_category,
+            hour_bin,
+            validation_share_pct
+        FROM transport.v_paris_hourly_profile
+        ORDER BY day_category, hour_bin
+        """,
+        pg,
+    )
+
+    return PipelineArtifacts(
+        station_fact=station_fact,
+        daily=daily,
+        featured=featured,
+        enriched=enriched,
+        calendar=pd.DataFrame(),
+        weather=pd.DataFrame(),
+        mta_hourly_profile=nyc_hourly,
+        paris_hourly_profile=paris_hourly,
+        weather_source="not_used_stage1",
     )

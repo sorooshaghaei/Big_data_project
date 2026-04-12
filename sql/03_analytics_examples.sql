@@ -1,120 +1,74 @@
 -- ---------------------------------------------------------------------
--- Example analytics queries for learning and validation
+-- Example analytics queries for the PostgreSQL-first contract
 -- ---------------------------------------------------------------------
 
--- 1) Basic filter query (date + region).
+-- 1) Canonical fact demand filter.
 SELECT *
 FROM transport.fact_demand
 WHERE demand_date >= DATE '2024-01-01'
-  AND region = 'Ile-de-France';
+  AND city = 'Paris';
 
--- 2) Aggregation with grouping.
+-- 2) Daily demand by source and city.
 SELECT
-    region,
+    city,
+    source,
     metric_type,
-    COUNT(*) AS rows_count,
-    SUM(value) AS total_value,
-    AVG(value) AS avg_value
-FROM transport.fact_demand
-GROUP BY region, metric_type
-ORDER BY total_value DESC;
+    COUNT(*) AS day_rows,
+    SUM(total_value) AS summed_daily_value,
+    AVG(total_value) AS avg_daily_value
+FROM transport.v_daily_demand
+GROUP BY city, source, metric_type
+ORDER BY summed_daily_value DESC;
 
--- 3) INNER JOIN example (keep only dates present in both tables).
-SELECT
-    d.demand_date,
-    d.region,
-    d.total_value,
-    c.is_holiday
-FROM transport.v_daily_demand d
-INNER JOIN transport.dim_calendar c
-    ON d.demand_date = c.calendar_date;
-
--- 4) LEFT JOIN example (keep all demand rows, even if no weather row).
-SELECT
-    d.demand_date,
-    d.region,
-    d.total_value,
-    w.mean_temp_c,
-    w.precip_mm
-FROM transport.v_daily_demand d
-LEFT JOIN transport.dim_weather w
-    ON d.demand_date = w.weather_date
-   AND d.region = w.region;
-
--- 5) Rolling average with window function.
+-- 3) Rolling average with a window function.
 SELECT
     demand_date,
-    region,
+    city,
+    source,
     metric_type,
-    SUM(value) AS daily_value,
-    AVG(SUM(value)) OVER (
-        PARTITION BY region, metric_type
+    total_value,
+    AVG(total_value) OVER (
+        PARTITION BY city, source, metric_type
         ORDER BY demand_date
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
     ) AS rolling_7_avg
-FROM transport.fact_demand
-GROUP BY demand_date, region, metric_type;
+FROM transport.v_daily_demand
+ORDER BY city, source, metric_type, demand_date;
 
--- 6) CTE-based anomaly marker (z-score threshold).
-WITH daily AS (
-    SELECT
-        demand_date,
-        region,
-        metric_type,
-        SUM(value) AS daily_value
-    FROM transport.fact_demand
-    GROUP BY demand_date, region, metric_type
-), scored AS (
-    SELECT
-        demand_date,
-        region,
-        metric_type,
-        daily_value,
-        AVG(daily_value) OVER (PARTITION BY region, metric_type) AS mean_value,
-        STDDEV_POP(daily_value) OVER (PARTITION BY region, metric_type) AS std_value
-    FROM daily
-)
+-- 4) Top contributors across both cities.
 SELECT
-    demand_date,
-    region,
-    metric_type,
-    daily_value,
-    CASE
-        WHEN std_value = 0 THEN 0
-        WHEN ABS((daily_value - mean_value) / std_value) >= 2.5 THEN 1
-        ELSE 0
-    END AS is_anomaly
-FROM scored
-ORDER BY demand_date;
-
--- 7) Top stations / lines contributing most to overall traffic.
-SELECT
-    region,
+    city,
     source,
     location_name,
-    SUM(value) AS total_value
-FROM transport.fact_demand
-GROUP BY region, source, location_name
+    total_value
+FROM transport.v_contributor_source
 ORDER BY total_value DESC
 LIMIT 20;
 
--- 8) Paris vs NYC structural comparison.
-WITH city_daily AS (
-    SELECT
-        demand_date,
-        CASE
-            WHEN region = 'Ile-de-France' THEN 'Paris'
-            ELSE 'NYC'
-        END AS city,
-        SUM(value) AS total_value
-    FROM transport.fact_demand
-    GROUP BY demand_date, city
-)
+-- 5) Paris vs NYC structural comparison.
 SELECT
     city,
     AVG(total_value) AS avg_daily_value,
     STDDEV_POP(total_value) AS std_daily_value,
-    STDDEV_POP(total_value) / NULLIF(AVG(total_value), 0) AS coeff_variation
-FROM city_daily
+    STDDEV_POP(total_value) / NULLIF(AVG(total_value), 0) AS coeff_variation,
+    AVG(CASE WHEN is_weekend THEN total_value END)
+        / NULLIF(AVG(CASE WHEN NOT is_weekend THEN total_value END), 0) AS weekend_weekday_ratio
+FROM transport.v_city_structure_source
 GROUP BY city
 ORDER BY city;
+
+-- 6) NYC hourly ridership profile.
+SELECT
+    region,
+    hour,
+    hourly_total
+FROM transport.v_nyc_hourly_profile
+ORDER BY region, hour;
+
+-- 7) Paris hourly validation-share profile.
+SELECT
+    day_category,
+    hour_bin,
+    validation_share_pct
+FROM transport.v_paris_hourly_profile
+ORDER BY day_category, hour_bin;

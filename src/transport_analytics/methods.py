@@ -13,7 +13,6 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import IsolationForest, RandomForestRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -51,17 +50,10 @@ def stage_one_plan() -> pd.DataFrame:
             outputs="Weekday, monthly, yearly, and hourly summaries",
         ),
         StageMethod(
-            question="What is the impact of weather conditions on ridership?",
-            method_name="Weather sensitivity regression",
-            method_family="Statistical learning",
-            inputs="Enriched daily table with weather and calendar context",
-            outputs="Correlation table and regression coefficients",
-        ),
-        StageMethod(
             question="Can we predict future ridership levels?",
             method_name="Lag-based random forest forecasting",
             method_family="Machine learning",
-            inputs="Time features, rolling features, and weather context",
+            inputs="Time features and rolling demand features",
             outputs="Holdout predictions and forecast metrics",
         ),
         StageMethod(
@@ -72,7 +64,7 @@ def stage_one_plan() -> pd.DataFrame:
             outputs="Anomaly flags and anomaly-rate summary",
         ),
         StageMethod(
-            question="Which stations or lines contribute most, and how do Paris and NYC differ structurally?",
+            question="Which stations contribute most, and how do Paris and NYC differ structurally?",
             method_name="Contribution ranking and city comparison",
             method_family="Comparative analytics",
             inputs="Station fact table + city-level aggregates",
@@ -131,63 +123,6 @@ def temporal_profile_method(artifacts: PipelineArtifacts, results_dir: Path, fig
     }
 
 
-def weather_impact_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir: Path) -> dict[str, pd.DataFrame]:
-    """Estimate weather-demand relationships on city-level totals."""
-    enriched = artifacts.enriched.copy()
-    enriched["city"] = infer_city(enriched["region"])
-
-    city_daily = (
-        enriched.groupby(["date", "city"], as_index=False)
-        .agg(
-            total_value=("value", "sum"),
-            mean_temp_c=("mean_temp_c", "mean"),
-            precip_mm=("precip_mm", "mean"),
-            wind_kmh=("wind_kmh", "mean"),
-            is_weekend=("is_weekend", "max"),
-            month=("month", "first"),
-        )
-        .dropna(subset=["mean_temp_c", "precip_mm", "wind_kmh"])
-    )
-
-    coef_rows: list[dict] = []
-    corr_rows: list[dict] = []
-    predictors = ["mean_temp_c", "precip_mm", "wind_kmh", "is_weekend", "month"]
-
-    for city, city_df in city_daily.groupby("city"):
-        if len(city_df) < 10:
-            continue
-        X = city_df[predictors]
-        y = np.log1p(city_df["total_value"])
-        model = LinearRegression()
-        model.fit(X, y)
-        preds = model.predict(X)
-        coef_rows.append(
-            {
-                "city": city,
-                "intercept": float(model.intercept_),
-                "r2_in_sample": float(model.score(X, y)),
-                **{name: float(value) for name, value in zip(predictors, model.coef_, strict=True)},
-            }
-        )
-        corr_rows.append(
-            {
-                "city": city,
-                "corr_temp": float(city_df["total_value"].corr(city_df["mean_temp_c"])),
-                "corr_precip": float(city_df["total_value"].corr(city_df["precip_mm"])),
-                "corr_wind": float(city_df["total_value"].corr(city_df["wind_kmh"])),
-                "row_count": int(len(city_df)),
-                "mae_log": float(mean_absolute_error(y, preds)),
-            }
-        )
-
-    coefficients = pd.DataFrame(coef_rows)
-    correlations = pd.DataFrame(corr_rows)
-    coefficients.to_csv(results_dir / "weather_regression_coefficients.csv", index=False)
-    correlations.to_csv(results_dir / "weather_correlations.csv", index=False)
-
-    return {"coefficients": coefficients, "correlations": correlations}
-
-
 def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir: Path) -> dict[str, pd.DataFrame]:
     """Train a lag-based random forest forecasting baseline."""
     df = artifacts.enriched.copy()
@@ -203,11 +138,11 @@ def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_
         "rolling_30_std",
         "pct_change_1",
         "day_of_week",
+        "week_of_year",
+        "day_of_year",
         "month",
+        "year",
         "is_weekend",
-        "mean_temp_c",
-        "precip_mm",
-        "wind_kmh",
     ]
     cat_cols = ["region", "source", "metric_type"]
     model_df = df.dropna(subset=["value", "date", *feature_cols]).copy()
@@ -391,7 +326,7 @@ def contribution_and_structure_method(
 
 
 def run_stage_workflow(artifacts: PipelineArtifacts, root: Path) -> dict[str, object]:
-    """Run Stage 1 planning outputs and the five selected Stage 2 methods."""
+    """Run Stage 1 planning outputs and the selected analytical methods."""
     results_dir, figures_dir = _ensure_dirs(root)
 
     stage1 = stage_one_plan()
@@ -400,14 +335,12 @@ def run_stage_workflow(artifacts: PipelineArtifacts, root: Path) -> dict[str, ob
     outputs = {
         "stage1_plan": stage1,
         "temporal": temporal_profile_method(artifacts, results_dir, figures_dir),
-        "weather": weather_impact_method(artifacts, results_dir, figures_dir),
         "forecast": forecasting_method(artifacts, results_dir, figures_dir),
         "anomaly": anomaly_method(artifacts, results_dir, figures_dir),
         "comparison": contribution_and_structure_method(artifacts, results_dir, figures_dir),
     }
 
     summary = {
-        "weather_source": artifacts.weather_source,
         "station_fact_rows": int(len(artifacts.station_fact)),
         "daily_rows": int(len(artifacts.daily)),
         "featured_rows": int(len(artifacts.featured)),

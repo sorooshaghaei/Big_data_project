@@ -81,7 +81,7 @@ class PostgresConfig:
 
     host: str = "34.155.143.75"
     port: int = 5432
-    database: str = "transport_analytics"
+    database: str = "transport"
     user: str = "postgres"
     password: str = "postgres"
     schema: str = "transport"
@@ -98,7 +98,7 @@ class PostgresConfig:
         return cls(
             host=os.getenv("PGHOST", "34.155.143.75"),
             port=int(os.getenv("PGPORT", "5432")),
-            database=os.getenv("PGDATABASE", "transport_analytics"),
+            database=os.getenv("PGDATABASE", "transport"),
             user=os.getenv("PGUSER", "postgres"),
             password=os.getenv("PGPASSWORD", "postgres"),
             schema=os.getenv("PGSCHEMA", "transport"),

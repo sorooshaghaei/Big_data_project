@@ -1,6 +1,6 @@
 # Project Structure (Restructured)
 
-This project is now organized for reusability, PostgreSQL integration, and clearer delivery of the presentation artifact.
+This project is now organized around PostgreSQL-backed analysis and clearer delivery of the final artifacts.
 
 ## Main directories
 
@@ -11,23 +11,21 @@ This project is now organized for reusability, PostgreSQL integration, and clear
 - `report/`
   - One full LaTeX report plus generated figures and method outputs.
 - `src/transport_analytics/`
-  - Reusable Python package for chunked ingestion, normalization, feature engineering, context enrichment, and analysis methods.
+  - Reusable Python package for PostgreSQL-backed loading, feature engineering, and analysis methods.
 - `sql/`
   - PostgreSQL schema, views, and analytics query examples.
 - `docs/papers/`
   - Background research papers and bibliography notes.
-- `data/processed/`
-  - Generated clean artifacts from pipeline runs.
-
 ## Backward compatibility
 
 - `src/utils.py` and `src/baseline.py` are kept as compatibility wrappers.
 
 ## Suggested workflow
 
-1. Run `scripts/run_stage_workflow.py --sample`.
-2. Start with `notebooks/transport_analytics_workbook.ipynb`.
-3. Use `report/transport_analytics_compendium.tex` for the full Stage 1 + Stage 2 written report.
-4. Inspect `report/results/` for generated method outputs.
-5. Load the cleaned outputs into PostgreSQL.
-6. Query with SQL views and analytics scripts.
+1. Load `.env` into your shell.
+2. Apply `sql/01_schema.sql` and `sql/02_views.sql` against PostgreSQL.
+3. Run `scripts/run_stage_workflow.py`.
+4. Start with `notebooks/transport_analytics_workbook.ipynb`.
+5. Use `report/transport_analytics_compendium.tex` for the full written report.
+6. Inspect `report/results/` for generated method outputs.
+7. Query PostgreSQL through the `transport` views and example SQL scripts.
