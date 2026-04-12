@@ -33,14 +33,17 @@ def _style() -> None:
     )
 
 
-def _save(fig: plt.Figure, name: str) -> None:
+def _save(fig: plt.Figure, name: str, *, aliases: list[str] | None = None) -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(FIGURES / name, dpi=180, bbox_inches="tight")
+    targets = [name, *(aliases or [])]
+    for target in targets:
+        fig.savefig(FIGURES / target, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
 def workflow_diagram() -> None:
+    print("[progress] Building workflow diagram")
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.set_axis_off()
 
@@ -68,6 +71,7 @@ def workflow_diagram() -> None:
 
 
 def temporal_profiles() -> None:
+    print("[progress] Building temporal profile figure")
     monthly = pd.read_csv(RESULTS / "temporal_monthly_profile.csv")
     nyc_hourly = pd.read_csv(RESULTS / "temporal_nyc_hourly_profile.csv")
 
@@ -92,6 +96,7 @@ def temporal_profiles() -> None:
 
 
 def forecast_performance() -> None:
+    print("[progress] Building forecast performance figure")
     forecast = pd.read_csv(RESULTS / "forecast_predictions.csv")
     metrics = pd.read_csv(RESULTS / "forecast_metrics_by_city.csv")
 
@@ -113,10 +118,11 @@ def forecast_performance() -> None:
         axes[1].set_title("Forecast MAPE by City")
         axes[1].set_ylabel("MAPE")
 
-    _save(fig, "weather_and_forecast.png")
+    _save(fig, "forecast_performance.png", aliases=["weather_and_forecast.png"])
 
 
 def anomalies_and_contributors() -> None:
+    print("[progress] Building anomaly and contributor figure")
     anomaly = pd.read_csv(RESULTS / "anomaly_rates.csv")
     contributors = pd.read_csv(RESULTS / "top_contributors.csv").head(12)
 
@@ -138,6 +144,7 @@ def anomalies_and_contributors() -> None:
 
 
 def city_structure() -> None:
+    print("[progress] Building city structure figure")
     city = pd.read_csv(RESULTS / "city_structure_summary.csv")
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
 

@@ -36,6 +36,8 @@ def execute_sql_file(sql_path: Path, pg: PostgresConfig) -> None:
     engine = create_engine(pg.sqlalchemy_url)
 
     with engine.begin() as conn:
+        # Fail fast if another session is holding locks on transport views.
+        conn.exec_driver_sql("SET lock_timeout = '10s'")
         # Execute the file as raw SQL so SQLAlchemy does not treat literals
         # like ':00' inside SQL strings as bind parameters.
         conn.exec_driver_sql(sql)
