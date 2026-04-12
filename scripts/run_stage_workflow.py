@@ -6,7 +6,31 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
+
+
+def _progress(message: str) -> None:
+    print(f"[progress] {message}", flush=True)
+
+
+@contextmanager
+def _heartbeat(label: str, interval_seconds: int = 5):
+    stop_event = threading.Event()
+
+    def run() -> None:
+        while not stop_event.wait(interval_seconds):
+            _progress(f"Still running: {label}")
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        thread.join(timeout=0.1)
 
 
 def main() -> int:
@@ -28,11 +52,19 @@ def main() -> int:
 
     pg = PostgresConfig.from_env()
     if args.refresh_sql:
-        execute_sql_file(root / "sql" / "01_schema.sql", pg)
-        execute_sql_file(root / "sql" / "02_views.sql", pg)
+        _progress("Applying sql/01_schema.sql")
+        with _heartbeat("sql/01_schema.sql"):
+            execute_sql_file(root / "sql" / "01_schema.sql", pg)
+        _progress("Applying sql/02_views.sql")
+        with _heartbeat("sql/02_views.sql"):
+            execute_sql_file(root / "sql" / "02_views.sql", pg)
 
-    artifacts = load_postgres_artifacts(pg)
-    outputs = run_stage_workflow(artifacts, root=root)
+    _progress("Loading PostgreSQL artifacts")
+    with _heartbeat("load PostgreSQL artifacts"):
+        artifacts = load_postgres_artifacts(pg, progress=_progress)
+    _progress("Running Stage 1 workflow")
+    with _heartbeat("Stage 1 workflow"):
+        outputs = run_stage_workflow(artifacts, root=root, progress=_progress)
 
     print("Workflow complete")
     print("db_host:", pg.host)

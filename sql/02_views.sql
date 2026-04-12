@@ -69,15 +69,41 @@ FROM nyc_station_daily;
 
 -- Daily demand aggregated from the canonical fact demand view.
 CREATE VIEW transport.v_daily_demand AS
-SELECT
-    demand_date,
-    city,
-    region,
-    source,
-    metric_type,
-    SUM(value) AS total_value
-FROM transport.fact_demand
-GROUP BY demand_date, city, region, source, metric_type;
+WITH paris_daily AS (
+    SELECT
+        d.service_date AS demand_date,
+        'Paris'::text AS city,
+        'Ile-de-France'::text AS region,
+        'idfm_station_daily'::text AS source,
+        'validations'::text AS metric_type,
+        SUM(d.nb_validations)::numeric AS total_value
+    FROM public.idfm_daily_validations d
+    JOIN public.idfm n
+        ON n.network_id = d.network_id
+    WHERE n.network_type = 'station'
+      AND d.service_date IS NOT NULL
+      AND d.nb_validations IS NOT NULL
+    GROUP BY d.service_date
+), nyc_daily AS (
+    SELECT
+        h.transit_date_local AS demand_date,
+        'NYC'::text AS city,
+        COALESCE(m.borough, 'NYC')::text AS region,
+        'mta_station_daily'::text AS source,
+        'ridership'::text AS metric_type,
+        SUM(h.ridership)::numeric AS total_value
+    FROM public.mta_hourly_ridership h
+    LEFT JOIN public.mta m
+        ON m.station_id = h.station_id
+    WHERE h.transit_date_local IS NOT NULL
+      AND h.ridership IS NOT NULL
+    GROUP BY
+        h.transit_date_local,
+        COALESCE(m.borough, 'NYC')::text
+)
+SELECT * FROM paris_daily
+UNION ALL
+SELECT * FROM nyc_daily;
 
 -- NYC hourly ridership profile derived from hourly source truth.
 CREATE VIEW transport.v_nyc_hourly_profile AS
@@ -113,16 +139,44 @@ GROUP BY p.day_type, p.hour_slot;
 
 -- Stable source for contributor analysis.
 CREATE VIEW transport.v_contributor_source AS
-SELECT
-    city,
-    region,
-    source,
-    metric_type,
-    location_id,
-    location_name,
-    SUM(value) AS total_value
-FROM transport.fact_demand
-GROUP BY city, region, source, metric_type, location_id, location_name;
+WITH paris_contributors AS (
+    SELECT
+        'Paris'::text AS city,
+        'Ile-de-France'::text AS region,
+        'idfm_station_daily'::text AS source,
+        'validations'::text AS metric_type,
+        COALESCE(NULLIF(n.id_refa_lda, ''), n.network_id::text) AS location_id,
+        n.network_name AS location_name,
+        SUM(d.nb_validations)::numeric AS total_value
+    FROM public.idfm_daily_validations d
+    JOIN public.idfm n
+        ON n.network_id = d.network_id
+    WHERE n.network_type = 'station'
+      AND d.nb_validations IS NOT NULL
+    GROUP BY
+        COALESCE(NULLIF(n.id_refa_lda, ''), n.network_id::text),
+        n.network_name
+), nyc_contributors AS (
+    SELECT
+        'NYC'::text AS city,
+        COALESCE(m.borough, 'NYC')::text AS region,
+        'mta_station_daily'::text AS source,
+        'ridership'::text AS metric_type,
+        h.station_id::text AS location_id,
+        COALESCE(m.station_name, h.station_id)::text AS location_name,
+        SUM(h.ridership)::numeric AS total_value
+    FROM public.mta_hourly_ridership h
+    LEFT JOIN public.mta m
+        ON m.station_id = h.station_id
+    WHERE h.ridership IS NOT NULL
+    GROUP BY
+        COALESCE(m.borough, 'NYC')::text,
+        h.station_id::text,
+        COALESCE(m.station_name, h.station_id)::text
+)
+SELECT * FROM paris_contributors
+UNION ALL
+SELECT * FROM nyc_contributors;
 
 -- Stable source for city-level structural comparisons.
 CREATE VIEW transport.v_city_structure_source AS

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 
@@ -30,12 +31,14 @@ def _load_sqlalchemy():
 
 def execute_sql_file(sql_path: Path, pg: PostgresConfig) -> None:
     """Execute a SQL script file against PostgreSQL."""
-    create_engine, text = _load_sqlalchemy()
+    create_engine, _ = _load_sqlalchemy()
     sql = sql_path.read_text(encoding="utf-8")
     engine = create_engine(pg.sqlalchemy_url)
 
     with engine.begin() as conn:
-        conn.execute(text(sql))
+        # Execute the file as raw SQL so SQLAlchemy does not treat literals
+        # like ':00' inside SQL strings as bind parameters.
+        conn.exec_driver_sql(sql)
 
 
 def read_sql_query(
@@ -94,25 +97,18 @@ def write_pipeline_outputs(artifacts: PipelineArtifacts, pg: PostgresConfig, rep
     )
 
 
-def load_postgres_artifacts(pg: PostgresConfig) -> PipelineArtifacts:
-    """Load Stage 1 analysis artifacts directly from PostgreSQL views."""
-    station_fact = read_sql_query(
-        """
-        SELECT
-            demand_date AS date,
-            region,
-            location_id,
-            location_name,
-            metric_type,
-            value,
-            source
-        FROM transport.fact_demand
-        ORDER BY demand_date, city, region, source, location_name
-        """,
-        pg,
-        parse_dates=["date"],
-    )
+def _emit_progress(progress: Callable[[str], None] | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
 
+
+def load_postgres_artifacts(
+    pg: PostgresConfig,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> PipelineArtifacts:
+    """Load Stage 1 analysis artifacts directly from PostgreSQL views."""
+    _emit_progress(progress, "Loading daily demand view from PostgreSQL")
     daily = read_sql_query(
         """
         SELECT
@@ -122,15 +118,18 @@ def load_postgres_artifacts(pg: PostgresConfig) -> PipelineArtifacts:
             metric_type,
             total_value AS value
         FROM transport.v_daily_demand
-        ORDER BY demand_date, city, region, source, metric_type
         """,
         pg,
         parse_dates=["date"],
     )
+    _emit_progress(progress, f"Loaded daily rows: {len(daily)}")
 
+    _emit_progress(progress, "Building time-series features")
     featured = add_time_features(daily)
+    _emit_progress(progress, f"Built featured rows: {len(featured)}")
     enriched = featured.copy()
 
+    _emit_progress(progress, "Loading NYC hourly profile from PostgreSQL")
     nyc_hourly = read_sql_query(
         """
         SELECT
@@ -143,7 +142,9 @@ def load_postgres_artifacts(pg: PostgresConfig) -> PipelineArtifacts:
         """,
         pg,
     )
+    _emit_progress(progress, f"Loaded NYC hourly rows: {len(nyc_hourly)}")
 
+    _emit_progress(progress, "Loading Paris hourly profile from PostgreSQL")
     paris_hourly = read_sql_query(
         """
         SELECT
@@ -155,6 +156,23 @@ def load_postgres_artifacts(pg: PostgresConfig) -> PipelineArtifacts:
         """,
         pg,
     )
+    _emit_progress(progress, f"Loaded Paris hourly rows: {len(paris_hourly)}")
+
+    _emit_progress(progress, "Loading contributor-level facts from PostgreSQL")
+    station_fact = read_sql_query(
+        """
+        SELECT
+            region,
+            location_id,
+            location_name,
+            metric_type,
+            total_value AS value,
+            source
+        FROM transport.v_contributor_source
+        """,
+        pg,
+    )
+    _emit_progress(progress, f"Loaded station_fact rows: {len(station_fact)}")
 
     return PipelineArtifacts(
         station_fact=station_fact,

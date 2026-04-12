@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -37,6 +38,11 @@ def _ensure_dirs(root: Path) -> tuple[Path, Path]:
     results_dir.mkdir(parents=True, exist_ok=True)
     figures_dir.mkdir(parents=True, exist_ok=True)
     return results_dir, figures_dir
+
+
+def _emit_progress(progress: Callable[[str], None] | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
 
 
 def stage_one_plan() -> pd.DataFrame:
@@ -123,7 +129,13 @@ def temporal_profile_method(artifacts: PipelineArtifacts, results_dir: Path, fig
     }
 
 
-def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir: Path) -> dict[str, pd.DataFrame]:
+def forecasting_method(
+    artifacts: PipelineArtifacts,
+    results_dir: Path,
+    figures_dir: Path,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, pd.DataFrame]:
     """Train a lag-based random forest forecasting baseline."""
     df = artifacts.enriched.copy()
     df["city"] = infer_city(df["region"])
@@ -146,6 +158,7 @@ def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_
     ]
     cat_cols = ["region", "source", "metric_type"]
     model_df = df.dropna(subset=["value", "date", *feature_cols]).copy()
+    _emit_progress(progress, f"Forecast model rows after feature filtering: {len(model_df)}")
 
     unique_dates = sorted(model_df["date"].drop_duplicates())
     split_index = max(1, int(len(unique_dates) * 0.8))
@@ -155,6 +168,7 @@ def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_
     test = model_df[model_df["date"] > cutoff].copy()
     if test.empty:
         raise ValueError("Forecasting split produced an empty test set.")
+    _emit_progress(progress, f"Forecast train rows: {len(train)} | test rows: {len(test)}")
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -176,7 +190,9 @@ def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_
             ),
         ]
     )
+    _emit_progress(progress, "Fitting random forest forecasting model")
     model.fit(train[feature_cols + cat_cols], train["value"])
+    _emit_progress(progress, "Forecast model fit complete; generating predictions")
     test = test.copy()
     test["prediction"] = model.predict(test[feature_cols + cat_cols])
     test["abs_pct_error"] = np.where(test["value"] == 0, np.nan, (test["prediction"] - test["value"]).abs() / test["value"])
@@ -217,13 +233,20 @@ def forecasting_method(artifacts: PipelineArtifacts, results_dir: Path, figures_
     return {"overall_metrics": overall_metrics, "by_city": by_city, "predictions": test}
 
 
-def anomaly_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir: Path) -> dict[str, pd.DataFrame]:
+def anomaly_method(
+    artifacts: PipelineArtifacts,
+    results_dir: Path,
+    figures_dir: Path,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, pd.DataFrame]:
     """Detect unusual demand observations with a hybrid anomaly rule."""
     df = artifacts.enriched.copy()
     df["city"] = infer_city(df["region"])
     feature_cols = ["value", "lag_1", "lag_7", "rolling_7_mean", "rolling_7_std", "pct_change_1", "zscore_30"]
     cat_cols = ["region", "source"]
     model_df = df.dropna(subset=["date", "value"]).copy()
+    _emit_progress(progress, f"Anomaly model rows: {len(model_df)}")
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -246,7 +269,9 @@ def anomaly_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir:
             ("detector", IsolationForest(random_state=42, contamination=0.03)),
         ]
     )
+    _emit_progress(progress, "Fitting anomaly detection model")
     anomaly_model.fit(model_df[feature_cols + cat_cols])
+    _emit_progress(progress, "Anomaly model fit complete; scoring observations")
     model_df["isolation_flag"] = anomaly_model.predict(model_df[feature_cols + cat_cols])
     model_df["is_zscore_anomaly"] = model_df["zscore_30"].abs().ge(2.5)
     model_df["is_anomaly"] = (model_df["isolation_flag"] == -1) | model_df["is_zscore_anomaly"]
@@ -325,19 +350,41 @@ def contribution_and_structure_method(
     return {"contributors": contributors, "city_summary": city_summary, "monthly_city": monthly_city}
 
 
-def run_stage_workflow(artifacts: PipelineArtifacts, root: Path) -> dict[str, object]:
+def run_stage_workflow(
+    artifacts: PipelineArtifacts,
+    root: Path,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, object]:
     """Run Stage 1 planning outputs and the selected analytical methods."""
     results_dir, figures_dir = _ensure_dirs(root)
 
+    _emit_progress(progress, "Writing Stage 1 method plan")
     stage1 = stage_one_plan()
     stage1.to_csv(results_dir / "stage1_method_plan.csv", index=False)
 
+    _emit_progress(progress, "Running temporal profiling")
+    temporal = temporal_profile_method(artifacts, results_dir, figures_dir)
+    _emit_progress(progress, "Temporal profiling complete")
+
+    _emit_progress(progress, "Running forecasting")
+    forecast = forecasting_method(artifacts, results_dir, figures_dir, progress=progress)
+    _emit_progress(progress, "Forecasting complete")
+
+    _emit_progress(progress, "Running anomaly detection")
+    anomaly = anomaly_method(artifacts, results_dir, figures_dir, progress=progress)
+    _emit_progress(progress, "Anomaly detection complete")
+
+    _emit_progress(progress, "Running contributor and city-structure analysis")
+    comparison = contribution_and_structure_method(artifacts, results_dir, figures_dir)
+    _emit_progress(progress, "Contributor and city-structure analysis complete")
+
     outputs = {
         "stage1_plan": stage1,
-        "temporal": temporal_profile_method(artifacts, results_dir, figures_dir),
-        "forecast": forecasting_method(artifacts, results_dir, figures_dir),
-        "anomaly": anomaly_method(artifacts, results_dir, figures_dir),
-        "comparison": contribution_and_structure_method(artifacts, results_dir, figures_dir),
+        "temporal": temporal,
+        "forecast": forecast,
+        "anomaly": anomaly,
+        "comparison": comparison,
     }
 
     summary = {
@@ -348,4 +395,5 @@ def run_stage_workflow(artifacts: PipelineArtifacts, root: Path) -> dict[str, ob
         "stage1_selected_methods": int(len(stage1)),
     }
     (results_dir / "analysis_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    _emit_progress(progress, "Stage 1 workflow outputs written to report/results")
     return outputs
