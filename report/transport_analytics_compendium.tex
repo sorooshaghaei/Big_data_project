@@ -1,144 +1,493 @@
 \documentclass[10pt,twocolumn,a4paper]{article}
-\usepackage[margin=0.7in]{geometry}
+\usepackage[margin=0.80in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{array}
 \usepackage{hyperref}
 \usepackage{xcolor}
+\usepackage{times}
+\usepackage{caption}
 
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
-    urlcolor=blue
+    urlcolor=blue,
+    citecolor=blue
 }
+\setlength{\columnsep}{0.24in}
+\sloppy
 
 \title{PostgreSQL-Backed Transport Analytics for Paris and New York City}
-\author{Big Data Project}
+\author{
+Maksym DOLHOV \and Mehdi AGHAEI \and Ho Bao Khanh Nguyen \and Nima DAVARI
+}
 \date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-This project analyzes public-transport demand in Paris and New York City using
-PostgreSQL as the single analytical source of truth. Source tables in the
-\texttt{public} schema are exposed through reporting-clean views in the
-\texttt{transport} schema, then consumed by a Python workflow that generates
-reproducible result tables and figures. The final method set contains four
-components: temporal profiling, lag-based forecasting, anomaly detection, and
-contributor / city-structure comparison. On the current reporting scope, the
-forecasting baseline achieves an overall mean absolute percentage error of
-\(6.02\%\), with stronger performance for NYC (\(5.86\%\)) than Paris
-(\(6.94\%\)). Paris shows a higher anomaly rate (\(8.96\%\)) than NYC
-(\(0.73\%\)), while Paris also exhibits higher average daily demand
-(\(\approx 4.13\) million) than NYC (\(\approx 2.63\) million).
+This project studies public-transport demand in Paris and New York City through
+a PostgreSQL-backed analytical workflow designed to keep the data source,
+derived views, Python analysis, notebook, and final paper aligned. Raw source
+tables remain in the \texttt{public} schema, while reporting-clean views in the
+\texttt{transport} schema define the contract consumed by the Python workflow.
+The final method set contains four components: temporal profiling, lag-based
+forecasting, anomaly detection, and contributor / city-structure comparison.
+Using the current cleaned reporting scope, the workflow produces \(12{,}696\)
+daily observations and \(2{,}003\) contributor-level rows. The forecasting
+baseline reaches an overall mean absolute percentage error of \(6.02\%\), with
+lower error for NYC (\(5.86\%\)) than Paris (\(6.94\%\)). The anomaly layer
+flags a substantially higher rate in Paris (\(8.96\%\)) than in NYC
+(\(0.73\%\)). Paris also shows higher average daily demand
+(\(\approx 4.13\) million) than NYC (\(\approx 2.63\) million), while NYC
+displays a weaker weekday concentration. The resulting paper emphasizes
+reproducibility, reporting consistency, and defensible interpretation rather
+than a large model stack.
 \end{abstract}
 
 \section{Introduction}
 
-The goal of this project is to compare large-scale transport demand patterns in
-Paris and New York City using one reproducible analytical workflow. Earlier
-iterations of the repository mixed exploratory notebook material, local-file
-assumptions, and placeholder narrative. The current baseline removes that
-ambiguity: PostgreSQL stores the authoritative source data, SQL views define the
-reporting contract, and Python produces the final derived outputs under
-\texttt{report/results/}.
+Urban transit systems generate dense operational traces that can support demand
+monitoring, comparative planning, and baseline forecasting. Smart-card and
+ridership logs are especially useful because they preserve temporal structure at
+station or network level while remaining close to the decisions that transport
+operators need to make. For a student project, however, there is a second
+problem beyond the analysis itself: the workflow has to stay reproducible when
+multiple people work on notebooks, SQL, figures, and report text at the same
+time.
 
-This report is written from the current generated outputs rather than from
-earlier placeholder material. The emphasis is on defensible interpretation:
-how demand evolves over time, how well a simple forecasting model performs,
-which observations are anomalous, and which stations dominate total traffic.
+This project compares Paris and New York City transport demand through one
+shared analytical contract. Earlier repository iterations mixed local files,
+exploratory notebook material, and placeholder report claims. The final
+baseline removes that ambiguity. PostgreSQL stores the authoritative data, SQL
+views expose reporting-clean inputs, Python generates result tables and
+figures, and the report is written from those generated artifacts instead of
+from temporary notebook output. This matters because the scientific value of
+the project depends not only on the metrics that were produced, but also on the
+ability to trace each claim back to one stable result file.
 
-\section{Data and Architecture}
+The contribution of this final stage is therefore twofold. First, it produces a
+comparative demand analysis for Paris and NYC using four methods: temporal
+profiling, lag-based forecasting, anomaly detection, and contributor /
+city-structure analysis. Second, it frames these methods inside a reproducible
+PostgreSQL-first workflow that keeps the final paper, notebook, and figures
+numerically aligned. The report focuses on practical questions: how the two
+systems differ over time, how well a simple forecasting baseline performs,
+which observations are anomalous, and which stations dominate total validated or
+observed demand.
 
-The project reads three source datasets already loaded into PostgreSQL:
+The report is intentionally conservative in scope. It does not claim cross-city
+causal equivalence or state-of-the-art predictive performance. Instead, it
+shows that a medium-scale transport analysis can still be scientifically useful
+when the workflow is explicit, the result files are stable, and every major
+claim is traceable to a generated artifact. That is why the architecture
+discussion appears as part of the methodology rather than as separate internal
+engineering documentation.
 
-\begin{itemize}
-\item \texttt{public.idfm\_daily\_validations} with station-level Paris daily validations,
-\item \texttt{public.idfm\_hourly\_profiles} with Paris hourly validation shares,
-\item \texttt{public.mta\_hourly\_ridership} with NYC hourly ridership.
-\end{itemize}
+\section{Related Work}
 
-Reference tables \texttt{public.idfm} and \texttt{public.mta} provide network
-metadata. The analytical contract is defined in the \texttt{transport} schema:
+Smart-card data has long been used to recover travel behavior, rider segments,
+and network-level demand structure. Ma et al.~\cite{ma2013smartcard} showed
+that transaction records can reveal stable travel patterns without relying on
+traditional survey frequency, while Long and Thill~\cite{long2015jobs}
+combined smart-card data with household survey information to link ridership
+behavior with broader urban structure. Cats~\cite{cats2022mobility} further
+illustrated how smart-card traces can be mined for recurring mobility patterns
+at scale. These studies motivate the descriptive side of the current project,
+especially the use of station-level and city-level summaries instead of a
+single aggregate demand series.
 
-\begin{itemize}
-\item \texttt{v\_daily\_demand} for reporting-clean daily demand,
-\item \texttt{v\_nyc\_hourly\_profile} and \texttt{v\_paris\_hourly\_profile},
-\item \texttt{v\_contributor\_source} for station contribution ranking,
-\item \texttt{v\_city\_structure\_source} for city-level comparison.
-\end{itemize}
+Recent work also emphasizes richer behavior discovery. Aminpour and
+Saidi~\cite{aminpour2024mobility} used topic-modeling ideas to move beyond
+simple home-work simplifications, while Sun et al.~\cite{sun2025network}
+described how network analysis and smart-card records can expose structurally
+important stations. That literature is directly relevant to the contributor
+ranking used here: even when modeling remains simple, the rank order of highly
+used stations provides meaningful evidence about concentration, interchange
+hubs, and asymmetry between systems.
 
-Incomplete boundary years are excluded from the reporting views, which removes
-the partial Paris 2025 year from the final result set. The final workflow
-contains \(12{,}696\) daily rows and \(2{,}003\) contributor rows in the
-generated summary output.
+Forecasting literature is substantially more ambitious than the baseline used in
+this project. Dynamic graph and spatio-temporal learning approaches such as the
+model of Xie et al.~\cite{xie2022graph} aim to capture inter-station
+dependencies directly, while ASTIR~\cite{lablack2019astir} demonstrates how
+spatio-temporal data mining can support crowd-flow prediction. Those models are
+more expressive than the lag-based random forest baseline used here, but they
+also require more infrastructure and stronger assumptions about graph
+structure, feature availability, and tuning. For the final paper, the baseline
+choice is deliberate: the objective is to establish a transparent and
+reproducible comparison before moving to heavier architectures.
+
+Anomaly and disruption monitoring provide another important thread. Kolios et
+al.~\cite{kolios2023monitoring} studied monitoring recurrent mobility patterns
+through adaptive event-triggering logic, which is conceptually close to the
+goal of identifying observations that diverge strongly from routine behavior.
+The present project does not attempt causal attribution, but it uses anomaly
+scoring as an analytical screening layer that helps highlight periods worth
+interpretation in the report.
+
+Other recent papers are useful mainly as boundary markers for what this project
+does \emph{not} attempt. He et al.~\cite{he2018ridership} analyzed factors that
+influence station ridership in a specific metro context, while Chen
+et al.~\cite{chen2025trip} explored trip-purpose and socio-economic inference
+from transit users. Kundu et al.~\cite{kundu2025line} examined heterogeneous
+effects from a new transit line. Those studies show how quickly transport
+analytics can become policy-rich and context-heavy. The present paper remains
+more modest: it uses the literature to justify its analytical questions, but it
+stops short of causal or socio-economic interpretation that the current dataset
+cannot support directly.
+
+Taken together, the literature supports the structure of this paper. Existing
+research shows that smart-card and ridership traces are suitable for
+descriptive mining, forecasting, and disruption-aware analysis. The distinct
+contribution here is not a new predictive architecture; it is the combination
+of a reporting-clean PostgreSQL contract, a reproducible Paris-vs-NYC
+comparison, and a final result set whose metrics, figures, and narrative are
+all generated from the same workflow outputs. The project therefore occupies a
+practical position between exploratory course work and a fully specialized
+transport-modeling study.
+
+\section{Data Description}
+
+The final project uses three operational transport datasets already loaded into
+PostgreSQL, together with two metadata tables. Paris demand is represented by
+\texttt{public.idfm\_daily\_validations}, which contains station-level daily
+validation counts, and \texttt{public.idfm\_hourly\_profiles}, which contains
+hourly distribution shares used for temporal shape analysis. NYC demand is
+represented by \texttt{public.mta\_hourly\_ridership}, an hourly ridership
+table that is later aggregated into comparable daily demand views. Reference
+tables \texttt{public.idfm} and \texttt{public.mta} provide descriptive network
+metadata such as station and network names.
+
+\begin{table}[t]
+\centering
+\caption{Primary data sources used in the final paper}
+\begin{tabular}{p{0.23\linewidth}p{0.10\linewidth}p{0.16\linewidth}p{0.24\linewidth}}
+\toprule
+Source table & City & Temporal grain & Reporting coverage \\
+\midrule
+IDFM daily validations & Paris & daily station validations & 2015--2024 \\
+IDFM hourly profiles & Paris & hourly profile shares & cleaned reporting years \\
+MTA hourly ridership & NYC & hourly station ridership & 2020--2024 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two cities are not perfectly symmetric in source structure. Paris provides
+direct daily station validations plus separate hourly profile shares, while NYC
+starts from hourly ridership observations that must be rolled up into daily
+station totals. The project therefore does not claim one-to-one measurement
+equivalence at every intermediate step. Instead, it defines a cleaned reporting
+scope where both systems can be compared at daily city and station level while
+preserving the source-specific hourly views needed for temporal interpretation.
+
+The cleaned reporting scope excludes incomplete boundary years from the final
+comparison-oriented views. In practice, that removes the partial Paris 2025
+year from the analytical contract used by the report. The resulting output set
+contains \(12{,}696\) daily rows and \(2{,}003\) contributor-level station rows
+according to \texttt{analysis\_summary.json}. These totals are large enough to
+support descriptive and baseline predictive analysis while still being small
+enough to keep the project workflow understandable and reproducible.
+
+Two additional data choices are important. First, the final contributor
+analysis uses station-grain Paris rows only, which avoids mixing line-level and
+station-level semantics in the ranking output. Second, the cleaned reporting
+views apply the same year-scope logic across daily, contributor, and
+city-structure outputs. This consistency matters because it prevents the paper
+from comparing annual summaries built from one scope with contributor totals
+built from another.
+
+The generated result files used by the paper reflect that same scope. Temporal
+outputs are written to separate yearly, monthly, weekday, and hourly CSV files;
+forecasting outputs are split into overall metrics, city metrics, and holdout
+predictions; anomaly outputs are split into row-level flags and city-level
+rates; and contributor outputs are separated from city structure summaries. This
+file-level separation makes it possible to trace each figure and table in the
+paper back to one concrete artifact rather than to a mixed notebook state.
+
+Comparability therefore has to be handled procedurally rather than assumed. The
+paper does not argue that a Paris validation count is physically identical to an
+NYC ridership count at every level of aggregation. What it argues is narrower:
+once both systems are mapped into cleaned daily demand views with stable city
+labels, reporting scope, and contributor grain, they can support a defensible
+comparative analysis of trend, forecastability, anomaly concentration, and hub
+dominance.
+
+That distinction is important for scientific writing. A project can be honest
+about source heterogeneity and still produce useful comparative evidence if the
+alignment rules are explicit. The PostgreSQL contract serves exactly that role
+here. It documents what is aligned, what remains source-specific, and which
+outputs should be treated as directly comparable in the final report.
+
+\section{PostgreSQL-Centered Architecture}
+
+PostgreSQL was chosen as the analytical backbone because the project needed one
+stable source of truth that multiple artifacts could consume without reloading
+or cleaning raw files separately. A CSV-first workflow would have left the
+report, notebook, and scripts vulnerable to local path drift and inconsistent
+intermediate cleaning steps. By contrast, PostgreSQL allows the raw uploaded
+tables to remain intact in the \texttt{public} schema while the cleaned
+reporting contract is expressed through SQL views in a separate
+\texttt{transport} schema.
+
+That schema split is central to the final design. The \texttt{public} schema
+holds source-level operational tables. The \texttt{transport} schema holds
+reporting-ready views such as \texttt{v\_daily\_demand},
+\texttt{v\_nyc\_hourly\_profile}, \texttt{v\_paris\_hourly\_profile},
+\texttt{v\_contributor\_source}, and \texttt{v\_city\_structure\_source}. This
+means the SQL layer, not the notebook, defines the cleaned year scope and
+contributor label normalization used in the final report. The Python workflow
+then consumes those views and writes the derived CSV outputs under
+\texttt{report/results/}, which are in turn used by the notebook, figure
+builder, and paper text.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/workflow_diagram.png}
-\caption{Final PostgreSQL-first analysis flow used by the project.}
+\caption{PostgreSQL-first workflow used for the final generated outputs.}
 \end{figure}
+
+This design improves reproducibility in two ways. First, it removes dependence
+on local raw files from the official workflow path. Second, it makes each
+quantitative claim traceable to either a SQL view or a generated result file.
+For a project of this size, that tradeoff is more valuable than adopting a more
+complex deployment architecture. The important design decision is therefore the
+analytical contract, not the underlying server hardware, which is intentionally
+outside the scope of this paper.
+
+In practice, the contract works as follows. SQL views first standardize date
+scope, contributor labels, and daily aggregation. The Python workflow then
+constructs time-series features and writes the final CSV outputs. The notebook
+and report consume those outputs rather than issuing independent analytical
+queries. That separation reduces the chance that the same project tells
+slightly different numerical stories in different artifacts, which was a real
+risk in the earlier local-file version of the repository.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Key PostgreSQL analytical views}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.36\columnwidth}>{\raggedright\arraybackslash}p{0.56\columnwidth}@{}}
+\toprule
+View & Role in the final workflow \\
+\midrule
+\texttt{v\_daily\_demand} & Cleaned daily demand baseline for downstream methods. \\
+\texttt{v\_nyc\_hourly\_profile} & NYC hourly ridership shape for temporal interpretation. \\
+\texttt{v\_paris\_hourly\_profile} & Paris hourly validation-share shape for temporal interpretation. \\
+\texttt{v\_contributor\_source} & Station-grain contributor totals for ranking. \\
+\texttt{v\_city\_structure\_source} & City-level aggregates for structural comparison. \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Methods}
 
-The final method set contains four components.
+\subsection{Temporal profiling}
 
-\textbf{Temporal profiling.} Daily demand is summarized by weekday, month, and
-year, while hourly profiles are analyzed separately for NYC ridership and Paris
-validation shares.
+Temporal profiling is the descriptive baseline for the whole project. The daily
+demand view is summarized by year, month, and weekday to reveal long-horizon
+trends, seasonal structure, and weekly rhythm. The two hourly profile views are
+kept separate because Paris hourly data is based on validation shares, while
+NYC hourly data is based on observed ridership totals. This method produces the
+tables \texttt{temporal\_yearly\_totals.csv},
+\texttt{temporal\_monthly\_profile.csv},
+\texttt{temporal\_weekday\_profile.csv},
+\texttt{temporal\_nyc\_hourly\_profile.csv}, and
+\texttt{temporal\_paris\_hourly\_profile.csv}. The goal is not only to describe
+the two systems, but also to establish whether later forecasting and anomaly
+results are plausible relative to the seasonal structure visible in the data.
+Because this method operates directly on the cleaned reporting layer, it also
+serves as a validation step for the SQL contract: if the yearly totals or
+monthly patterns looked implausible, the rest of the workflow would
+immediately be suspect.
 
-\textbf{Forecasting.} A lag-based random forest baseline uses lag features,
-rolling statistics, and calendar features. The model is evaluated with a
-time-ordered train/test split.
+\subsection{Lag-based forecasting}
 
-\textbf{Anomaly detection.} A hybrid rule combines rolling z-scores with an
-\texttt{IsolationForest} model fitted on value and lag-derived features.
+The forecasting stage uses the cleaned daily demand series as input. The model
+is intentionally simple: a random-forest regressor trained on lag features,
+rolling-window statistics, and calendar attributes derived from the daily
+series. The numerical features are \texttt{lag\_1}, \texttt{lag\_7},
+\texttt{lag\_14}, rolling means and standard deviations over 7-day and 30-day
+windows, and one-step percentage change. Calendar features include day of week,
+week of year, day of year, month, year, and weekend status. Region, source, and
+metric type are one-hot encoded as categorical inputs. The split is time
+ordered, not random, so the model is evaluated on future observations relative
+to the training period. The random forest uses 220 trees with
+\texttt{min\_samples\_leaf=2}, which balances stability and transparency for the
+project scale. This produces \texttt{forecast\_metrics\_overall.csv},
+\texttt{forecast\_metrics\_by\_city.csv}, and
+\texttt{forecast\_predictions.csv}. The objective is to provide a transparent
+baseline whose errors are easy to interpret rather than to optimize predictive
+performance at all costs.
 
-\textbf{Contributor and city-structure analysis.} Station-level demand is
-ranked to identify dominant contributors, and city-level summaries are computed
-for average daily demand, variability, seasonality, and weekend sensitivity.
+\subsection{Anomaly detection}
+
+The anomaly layer combines two signals: a rolling z-score that captures local
+deviation from recent behavior, and an \texttt{IsolationForest} model fitted on
+current value and lag-derived features. The anomaly feature set includes
+current value, 1-day and 7-day lags, a 7-day rolling mean and standard
+deviation, one-step percentage change, and a 30-day rolling z-score. The
+isolation model uses a contamination value of 0.03, while the statistical
+branch flags any observation with \(|z| \ge 2.5\). This hybrid design helps
+separate routine daily variation from observations that are unusual both in
+local context and in the broader feature space. The output is written to
+\texttt{anomaly\_flags.csv} and summarized in
+\texttt{anomaly\_rates.csv}. The method is descriptive: it highlights unusual
+observations for interpretation, but it does not claim to identify the causal
+mechanism behind each anomaly.
+
+\subsection{Contributor and city-structure analysis}
+
+The final method ranks stations by total demand contribution and summarizes each
+city through aggregate statistics such as average daily demand, variability,
+weekend sensitivity, and peak month. Paris contributor analysis is explicitly
+restricted to station-grain rows to avoid mixing station and line semantics in
+the final ranking. NYC contributor totals are computed from the cleaned station
+daily demand layer. This stage produces \texttt{top\_contributors.csv},
+\texttt{city\_structure\_summary.csv}, and
+\texttt{city\_monthly\_structure.csv}. It complements the other methods by
+showing whether city-level differences are driven by broad network structure,
+dominant hubs, or both.
+
+\begin{table}[t]
+\centering
+\caption{Method-to-output mapping in the final workflow}
+\begin{tabular}{p{0.20\linewidth}p{0.28\linewidth}p{0.34\linewidth}}
+\toprule
+Method & Core inputs & Generated outputs \\
+\midrule
+Temporal profiling & cleaned daily demand, hourly profile views & yearly, monthly, weekday, and hourly summaries \\
+Forecasting & lag features, rolling features, calendar features & forecast metrics and holdout predictions \\
+Anomaly detection & daily demand, lag features, rolling z-scores & anomaly flags and anomaly-rate summary \\
+Contributors / structure & station-level facts, city daily aggregates & top contributors and structural comparison tables \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Evaluation protocol}
+
+The evaluation logic follows the goal of the project rather than a benchmark
+competition. Forecasting is judged through holdout error on a time-ordered
+split because random shuffling would leak future information into the training
+set. City-level metrics are reported alongside overall metrics to avoid hiding
+cross-city asymmetry inside one aggregate score. For anomaly detection, the key
+reported output is not a classification accuracy measure, since there is no
+ground-truth anomaly label set in the project data. Instead, the paper reports
+anomaly rates and interprets the flagged periods qualitatively. For contributor
+and city-structure analysis, plausibility of station rankings and consistency
+with temporal summaries are treated as important validity checks.
+
+This evaluation design fits the scope of the project. The goal is not to claim
+optimality for one algorithm, but to produce a final report whose methods are
+transparent enough to defend and whose outputs can be regenerated. In that
+sense, evaluation is tied as much to interpretability and consistency as to
+predictive performance alone.
+
+The four-method combination was chosen for the same reason. Temporal profiling
+anchors the descriptive structure of the data. Forecasting tests whether that
+structure is strong enough to support short-term prediction. Anomaly detection
+checks where routine assumptions break down. Contributor and city-structure
+analysis then reconnect the time-series view to physically meaningful stations
+and system-level concentration. Each method answers a different question, but
+together they create a more complete analytical narrative than any one of them
+would alone.
 
 \section{Results}
 
 \subsection{Temporal patterns}
 
-The yearly totals confirm the reporting-clean scope: NYC covers 2020--2024 and
-Paris covers 2015--2024, with the partial 2025 year removed. Monthly structure
-is visibly different across the two systems. NYC peaks in winter and early
-autumn, while Paris peaks in October and weakens sharply in August.
+The yearly totals confirm the effect of the reporting-clean scope. NYC covers
+2020--2024, while Paris covers 2015--2024 with the incomplete 2025 year
+excluded. The Paris series shows a larger absolute scale throughout most of the
+window and a visible collapse in 2020 before a multi-year recovery. NYC shows a
+similar pandemic-era break, but the amplitude is smaller in absolute terms
+because the baseline level is lower.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/temporal_profiles.png}
-\caption{Monthly demand and NYC hourly ridership profile from the current run.}
+\caption{Current temporal outputs: monthly demand patterns and the NYC hourly profile.}
 \end{figure}
 
-\subsection{Forecasting}
+Monthly structure also differs. The generated monthly profile indicates that NYC
+peaks in February in the cleaned result set, while Paris peaks in October.
+Paris weakens sharply in August, which is consistent with seasonal travel
+behavior and reduced urban activity during summer holidays. At the weekly
+level, both systems show reduced weekend demand, but the later city-structure
+results confirm that the Paris weekend drop is stronger in relative terms.
 
-The forecasting baseline remains strong enough to support the final paper. The
-overall model is trained on \(8{,}336\) rows and evaluated on \(4{,}276\) rows,
-with an overall MAE of \(52{,}909\), RMSE of \(156{,}343\), and MAPE of
-\(6.02\%\).
+The temporal outputs also provide a useful sanity check for the forecasting
+task. The series are not stationary in a strict sense: both cities contain a
+pandemic-era structural break, strong seasonality, and pronounced weekly
+effects. A forecasting baseline that achieves low error in spite of that
+non-stationarity is therefore capturing real structure rather than merely
+memorizing a flat process.
 
 \begin{table}[t]
 \centering
-\caption{Forecast accuracy by city}
+\caption{Selected yearly totals from the cleaned reporting scope}
+\label{tab:selected-years}
 \begin{tabular}{lrrr}
 \toprule
-City & MAE & RMSE & MAPE \\
+City & 2020 & 2023 & 2024 \\
 \midrule
-NYC & 29,402 & 62,965 & 5.86\% \\
-Paris & 187,446 & 376,361 & 6.94\% \\
+NYC & 643.3M & 1{,}163.3M & 1{,}211.5M \\
+Paris & 926.0M & 1{,}729.7M & 1{,}024.2M \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-NYC forecasts are more stable in absolute terms, but both cities remain within
-a single-digit MAPE range. This is sufficient for a baseline forecasting
-section in the final report, although the Paris series is clearly harder to
-predict due to larger swings and lower short-term regularity.
+The selected yearly totals in Table~\ref{tab:selected-years} make the broad
+recovery story visible without requiring the reader to parse the full CSV
+output. Both systems rebound strongly after 2020, but the size and persistence
+of the recovery differ. NYC climbs steadily through 2024 in the cleaned result
+set, whereas Paris rebounds sharply by 2023 and then drops in the 2024 total
+present in the current reporting output. That pattern is part of the generated
+baseline and should be discussed as an observed result rather than normalized
+away by the narrative.
+
+\subsection{Forecasting}
+
+The forecasting baseline is strong enough to support a substantive results
+section without overstating the model. According to
+\texttt{forecast\_metrics\_overall.csv}, the final split trains on \(8{,}336\)
+rows and evaluates on \(4{,}276\) rows. The overall error reaches an MAE of
+\(52{,}909\), RMSE of \(156{,}343\), and MAPE of \(6.02\%\). These values show
+that a simple lag-based baseline can already explain a large part of the daily
+structure in the cleaned reporting series.
+
+\begin{table}[t]
+\centering
+\caption{Forecast accuracy by city}
+\label{tab:forecast-city}
+\begin{tabular}{lrrrr}
+\toprule
+City & Rows & MAE & RMSE & MAPE \\
+\midrule
+NYC & 3640 & 29,402 & 62,965 & 5.86\% \\
+Paris & 636 & 187,446 & 376,361 & 6.94\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The city-level split in Table~\ref{tab:forecast-city} reveals an important
+asymmetry. NYC produces a lower MAE, lower RMSE, and lower MAPE than Paris. The
+most conservative reading is that the NYC series is easier to predict with the
+current feature set, while Paris contains stronger short-term swings or
+structure that the baseline model does not fully capture. The gap is not
+catastrophic: both cities still remain within a single-digit MAPE range. That
+is a useful project finding because it supports the report narrative without
+requiring a more opaque forecasting stack.
+
+The absolute Paris error is much larger because the Paris city series operates
+at a higher traffic scale than NYC. For that reason, MAPE is a more meaningful
+cross-city comparison metric than MAE alone. Even under that normalized view,
+Paris remains harder to predict. This suggests that future work should either
+add richer exogenous context or move toward models that capture more complex
+temporal dependence across the network.
 
 \begin{figure}[t]
 \centering
@@ -148,35 +497,146 @@ predict due to larger swings and lower short-term regularity.
 
 \subsection{Anomalies}
 
-Anomaly rates remain highly asymmetric between the two cities. NYC has an
-anomaly rate of \(0.73\%\), while Paris reaches \(8.96\%\). The largest Paris
-anomalies cluster around 2020 disruption and recovery periods, whereas NYC
-outliers are concentrated around holiday and unusually weak weekend traffic.
+The anomaly outputs show the strongest contrast between the two systems.
+\texttt{anomaly\_rates.csv} reports an anomaly rate of \(0.73\%\) for NYC and
+\(8.96\%\) for Paris. This difference is too large to ignore. It suggests that
+the Paris daily series contains many more observations that look unusual
+relative to their local and global context under the current anomaly design.
 
-\subsection{Contributors and city structure}
-
-Paris has the larger system-level demand in the current reporting scope. Its
-average daily demand is approximately \(4.13\) million versus \(2.63\) million
-for NYC. Paris also shows a lower weekend-to-weekday ratio (\(0.512\)) than NYC
-(\(0.584\)), which indicates stronger weekday concentration.
+The anomaly table does not by itself explain why those points are unusual, but
+the distribution is still meaningful. In Paris, major anomalies cluster around
+strong disruption and recovery periods, especially in the 2020 window. In NYC,
+the anomaly count is much lower and is concentrated around isolated weak-demand
+periods such as holidays or atypical weekends. This is precisely the type of
+screening result the method was designed to produce: it directs attention to
+time windows that deserve interpretation without claiming causal certainty.
 
 \begin{table}[t]
 \centering
-\caption{City structure summary}
-\begin{tabular}{lrrr}
+\caption{Anomaly rates by city}
+\begin{tabular}{lrr}
 \toprule
-City & Avg daily & Weekend/weekday & Peak month \\
+City & Source & Anomaly rate \\
 \midrule
-NYC & 2.63M & 0.584 & 2 \\
-Paris & 4.13M & 0.512 & 10 \\
+NYC & mta\_station\_daily & 0.73\% \\
+Paris & idfm\_station\_daily & 8.96\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The top contributor table is plausible after label cleanup. Paris is dominated
-by Saint-Lazare, La D\'efense--Grande Arche, Gare de Lyon, Gare du Nord, and
-Montparnasse. NYC is led by Times Sq--42 St, Grand Central--42 St,
-34 St--Herald Sq, and 14 St--Union Sq.
+The gap between the two rates is large enough that it should influence how the
+rest of the report is interpreted. A system with a higher anomaly rate is
+harder to summarize with one representative weekly pattern and is also more
+likely to challenge a simple forecasting baseline. In that sense, the anomaly
+section helps explain the forecasting asymmetry rather than functioning as an
+isolated appendix.
+
+\subsection{Contributors and city structure}
+
+The city-level summary confirms that Paris is the larger system in the cleaned
+reporting scope. From \texttt{city\_structure\_summary.csv}, Paris reaches an
+average daily demand of approximately \(4.13\) million, while NYC reaches about
+\(2.63\) million. Median daily demand follows the same ordering, and both
+systems show similar coefficients of variation, around \(0.43\). The two
+systems therefore differ more in level and weekly sensitivity than in relative
+day-to-day volatility.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{City structure summary}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+City & Avg daily & Std. dev. & Wknd./wkday & Peak mo. \\
+\midrule
+NYC & 2.63M & 1.15M & 0.584 & 2 \\
+Paris & 4.13M & 1.76M & 0.512 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The weekend-to-weekday ratio makes the weekly difference concrete. NYC keeps a
+higher weekend share (\(0.584\)) than Paris (\(0.512\)), which implies that
+Paris demand is more concentrated in weekday commuting structure. This is
+consistent with the broader seasonal and temporal narrative from the earlier
+sections.
+
+The contributor ranking is also plausible after the Stage 2 label cleanup.
+Paris is dominated by Saint-Lazare, La Défense--Grande Arche, Gare de Lyon,
+Gare du Nord, and Montparnasse, all of which are obvious interchange or
+high-throughput nodes. NYC is led by Times Sq--42 St, Grand Central--42 St,
+34 St--Herald Sq, and 14 St--Union Sq, which again aligns with domain
+expectations. The rank order therefore works as a useful validity check on the
+cleaning pipeline: if the contributor table had been dominated by implausible
+labels, the rest of the report would have been harder to trust.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Illustrative top contributors}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.14\linewidth}>{\raggedright\arraybackslash}p{0.43\linewidth}r}
+\toprule
+City & Station & Total demand \\
+\midrule
+Paris & SAINT-LAZARE & 432.3M \\
+Paris & LA DEFENSE-GRANDE ARCHE & 325.3M \\
+Paris & GARE DE LYON & 291.6M \\
+NYC & Times Sq--42 St & 168.2M \\
+NYC & Grand Central--42 St & 115.4M \\
+NYC & 34 St--Herald Sq & 97.4M \\
+\bottomrule
+\end{tabular}
+
+\par\vspace{2pt}\raggedright\footnotesize
+Source: \texttt{top\_contributors.csv}.
+\end{table}
+
+The top-contributor view also clarifies why city-level comparisons should not
+be read as if the two systems were structurally identical. Paris is more top
+heavy in absolute station totals, while NYC spreads more of its total demand
+across a larger set of high-volume complexes. That does not invalidate the city
+comparison; it simply means the comparison is most defensible at the level of
+cleaned daily totals, weekend sensitivity, and ranked hubs rather than at raw
+network topology.
+
+\subsection{Cross-method synthesis}
+
+The four methods are more informative when read together than in isolation.
+Temporal profiling shows that both cities have strong weekly and seasonal
+structure, but Paris carries the larger scale and the sharper summer weakening.
+Forecasting then shows that this larger and less regular Paris signal is harder
+to predict with the same lag-based baseline. The anomaly layer reinforces that
+reading by flagging a much higher share of unusual Paris observations. Finally,
+the contributor ranking shows that Paris demand is more concentrated in a set of
+very large hubs, while NYC distributes high demand across several major
+interchange complexes.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Key quantitative findings}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.30\columnwidth}>{\raggedright\arraybackslash}p{0.62\columnwidth}@{}}
+\toprule
+Question & Evidence \\
+\midrule
+Which city has higher average daily demand? & Paris, about 4.13M versus 2.63M for NYC. \\
+Which city is easier to forecast? & NYC, with 5.86\% MAPE versus 6.94\% for Paris. \\
+Which city shows more unusual days? & Paris, with an 8.96\% anomaly rate versus 0.73\% for NYC. \\
+What dominates station demand? & Major interchange hubs, led by Saint-Lazare and Times Sq--42 St. \\
+\bottomrule
+\end{tabular}
+
+\par\vspace{2pt}\raggedright\footnotesize
+Sources: \texttt{city\_structure\_summary.csv}, \texttt{forecast\_metrics\_by\_city.csv},
+\texttt{anomaly\_rates.csv}, and \texttt{top\_contributors.csv}.
+\end{table}
+
+This synthesis is one of the main reasons the PostgreSQL-centered contract is
+useful. Because the daily summaries, anomaly tables, and contributor rankings
+all come from one cleaned view layer, the project can support a coherent
+narrative instead of a set of disconnected charts. The final paper therefore
+depends as much on consistency between methods as on the strength of any single
+metric.
 
 \begin{figure}[t]
 \centering
@@ -192,43 +652,139 @@ Montparnasse. NYC is led by Times Sq--42 St, Grand Central--42 St,
 
 \section{Discussion and Limitations}
 
-The project is now aligned around a reproducible database-backed workflow, but
-several limitations remain.
+The final workflow is strong as a reproducible analytical baseline, but it is
+not a claim that the present method stack is the best available for transport
+demand modeling. The forecasting component remains a baseline model. It is
+useful because it is transparent, quick to reproduce, and strong enough to
+support comparative interpretation, but it does not model richer network or
+event effects in the way graph-based and more specialized temporal models might
+\cite{xie2022graph,lablack2019astir}.
 
-First, the forecasting model is intentionally a baseline rather than a final
-production forecaster. It captures broad structure well, but it does not model
-special events, strikes, weather, or network interventions.
+The anomaly layer should also be interpreted carefully. A flagged observation is
+evidence of unusual behavior, not proof of a particular operational cause. In
+practice, anomaly detection is most useful here as a triage layer that marks
+periods for human interpretation or future event matching.
 
-Second, the anomaly analysis is descriptive rather than causal. The flagged
-observations indicate unusual behavior, but they do not prove why it happened.
+Contributor analysis remains sensitive to source labeling. The project removed
+mechanical whitespace inconsistencies and restricted Paris ranking to station
+rows, but semantically related stations can still appear separately when their
+source identifiers differ. That is acceptable for the current paper because the
+top-ranked stations remain plausible, but it limits how aggressively the report
+should interpret small differences among nearby hubs.
 
-Third, contributor ranking depends on the quality of station labeling in the
-source tables. The obvious whitespace issues were removed during Stage 2
-cleanup, but semantically similar stations are still treated as distinct when
-their identifiers differ.
+Finally, the reproducibility contract depends on generated outputs rather than
+live database queries at paper compile time. This is a reasonable compromise for
+a project report: the SQL views and workflow define one stable path, and the
+paper cites the outputs of that path. Still, if the database changes, the
+workflow must be rerun before the report should be updated.
 
-Finally, the notebook and report are derived from generated outputs rather than
-from live database queries at compile time. That is acceptable for submission,
-but it means the result regeneration step remains part of the reproducibility
-contract.
+Despite those limitations, the final project state is substantially stronger
+than the earlier repository baseline. The notebook no longer carries a separate
+story from the report, the result tables are regenerated from PostgreSQL rather
+than assembled manually, and the figures now correspond to current outputs
+instead of placeholder values. That improvement in analytical discipline is one
+of the main outcomes of the project.
+
+There is also a broader methodological lesson. For a course project, it is
+tempting to optimize only the visible final chart or only the most advanced
+model. The current repository history shows why that is not enough. Once data
+sources, notebook text, SQL logic, and report claims drift apart, even a good
+metric becomes hard to defend. The PostgreSQL-first rewrite reduced that risk by
+forcing all artifacts back onto one result contract.
+
+At the same time, the report should not hide the remaining frontier. Better
+forecasting likely requires richer external context, more explicit modeling of
+network dependence, or both. Better anomaly interpretation would require event
+labeling or an external disruption calendar. More aggressive contributor
+harmonization would require domain judgment about semantically related stations.
+Those are meaningful next steps, but they are extensions to a stable baseline,
+not fixes for a broken workflow.
+
+For planning-oriented interpretation, the current outputs already support a few
+practical lessons. A city with stronger weekday concentration and higher anomaly
+rate requires more caution when extrapolating routine patterns into future
+demand. A system whose dominant stations absorb a large share of total volume
+may also be more sensitive to local disruptions at those hubs. These are not
+causal policy recommendations, but they show that the final pipeline can
+produce operationally meaningful summaries without stepping outside the limits
+of the available evidence.
 
 \section{Conclusion}
 
-The project now has a coherent final analytical baseline. PostgreSQL is the
-single source of truth, the reporting views remove incomplete comparison years,
-and the generated outputs support a defensible paper narrative. The main
-findings are consistent across the final result set: Paris has higher overall
-demand, stronger weekday concentration, and a much higher anomaly rate, while
-NYC is easier to forecast with the current lag-based baseline. The repository is
-now ready for final notebook alignment and submission cleanup rather than
-another major analytical redesign.
+This project delivers a coherent final analytical baseline for comparing Paris
+and NYC transport demand. PostgreSQL serves as the single source of truth,
+reporting-clean views in the \texttt{transport} schema define the shared
+contract, and the Python workflow generates the figures and CSV outputs used by
+the notebook and paper. Within that framework, four methods were enough to
+produce interpretable findings: temporal profiling established the seasonal and
+weekly structure, the lag-based forecasting baseline achieved single-digit MAPE
+in both cities, anomaly detection highlighted much stronger irregularity in
+Paris, and contributor analysis confirmed plausible dominant stations in both
+systems.
 
-\section*{References}
+The most important outcome is not only the set of metrics, but the fact that
+the project now has a defensible reporting workflow. Each major claim in the
+paper can be traced back to the cleaned PostgreSQL views and the generated
+files under \texttt{report/results/}. That makes the project suitable for final
+submission and provides a clear baseline for any future extensions.
 
-\begin{enumerate}
-\item Project background papers stored under \texttt{docs/papers/}.
-\item Generated analytical outputs stored under \texttt{report/results/}.
-\item PostgreSQL analytical contract defined in \texttt{sql/02\_views.sql}.
-\end{enumerate}
+\begin{thebibliography}{99}
+
+\bibitem{ma2013smartcard}
+X. Ma, Y.-J. Wu, Y. Wang, F. Chen, and J. Liu, ``Mining smart card data for
+transit riders' travel patterns,'' \emph{Transportation Research Part C:
+Emerging Technologies}, vol. 36, pp. 1--12, 2013.
+
+\bibitem{long2015jobs}
+Y. Long and J.-C. Thill, ``Combining smart card data and household travel
+survey to analyze jobs--housing relationships in Beijing,'' \emph{Computers,
+Environment and Urban Systems}, vol. 53, pp. 19--35, 2015.
+
+\bibitem{cats2022mobility}
+O. Cats, ``Identifying human mobility patterns using smart card data,'' arXiv
+preprint arXiv:2208.05352, 2022.
+
+\bibitem{aminpour2024mobility}
+N. Aminpour and S. Saidi, ``Unveiling mobility patterns beyond home/work
+activities: A topic modeling approach using transit smart card and land-use
+data,'' \emph{Sustainable Cities and Society}, vol. 114, p. 105745, 2024.
+
+\bibitem{sun2025network}
+L. Sun \emph{et al.}, ``Optimizing urban mobility through complex network
+analysis and big data from smart cards,'' \emph{IoT}, vol. 6, no. 3, p. 44,
+2025.
+
+\bibitem{xie2022graph}
+P. Xie, M. Ma, T. Li, S. Ji, S. Du, Z. Yu, and J. Zhang, ``Spatio-temporal
+dynamic graph relation learning for urban metro flow prediction,'' arXiv
+preprint arXiv:2204.02650, 2022.
+
+\bibitem{lablack2019astir}
+M. Lablack, H. Qi, Y. Shen, and B. Yin, ``ASTIR: Spatio-temporal data mining
+for crowd flow prediction,'' \emph{IEEE Access}, vol. 7, pp. 175159--175165,
+2019.
+
+\bibitem{kolios2023monitoring}
+P. Kolios \emph{et al.}, ``Model-adaptive event triggering for monitoring
+recurrent mobility patterns in public transport,'' \emph{IEEE Transactions on
+Intelligent Transportation Systems}, 2023.
+
+\bibitem{he2018ridership}
+Y. He, Y. Zhao, and K. L. Tsui, ``An analysis of factors influencing metro
+station ridership: Insights from Taipei Metro,'' in \emph{Proc. IEEE
+International Conference on Intelligent Transportation Systems (ITSC)}, 2018,
+pp. 1598--1603.
+
+\bibitem{chen2025trip}
+Y. Chen \emph{et al.}, ``A two-stage trip inference model of purposes and
+socio-economic attributes of regular public transit users,'' \emph{IEEE
+Transactions on Intelligent Transportation Systems}, 2025.
+
+\bibitem{kundu2025line}
+D. Kundu \emph{et al.}, ``Benefits from a new transit line: Exploring the impact
+of rare users and spatially heterogeneous variations in intensity of use,''
+\emph{Journal of Public Transportation}, vol. 27, p. 100120, 2025.
+
+\end{thebibliography}
 
 \end{document}
