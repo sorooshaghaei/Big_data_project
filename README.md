@@ -1,8 +1,8 @@
 # Big_data_project
 
-This repository contains the written artifacts, SQL files, and Python code for a public transport analytics project comparing Paris and NYC demand patterns.
+This repository contains the final report assets, SQL views, and Python analysis code for a public-transport analytics project comparing Paris and NYC demand patterns.
 
-It is not a polished standalone product. The repo currently serves as a working project archive with:
+The current repository baseline is:
 
 - a main notebook: `notebooks/transport_analytics_workbook.ipynb`
 - a LaTeX report: `report/transport_analytics_compendium.tex`
@@ -46,9 +46,10 @@ This code contains the project’s analysis logic and report-generation helpers.
 ## Current Repository State
 
 - Source datasets are not stored in this repository.
-- The notebook is still broader than a final cleaned submission notebook.
-- The report exists, but later cleanup and restructuring may still be needed.
-- Some scripts assume an external database/environment that is not documented as a public setup flow here.
+- PostgreSQL is the analysis source of truth.
+- `report/results/` contains the generated Stage 2 result set used by the paper.
+- `report/figures/` is generated from those result tables.
+- `notebooks/transport_analytics_workbook.ipynb` is a supporting notebook, not the source of truth for the project narrative.
 
 ## Useful Files
 

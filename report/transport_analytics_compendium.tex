@@ -1,11 +1,11 @@
-\documentclass[11pt,a4paper]{article}
-\usepackage[margin=1in]{geometry}
+\documentclass[10pt,twocolumn,a4paper]{article}
+\usepackage[margin=0.7in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{xcolor}
-\usepackage{array}
-\usepackage{graphicx}
 
 \hypersetup{
     colorlinks=true,
@@ -13,520 +13,222 @@
     urlcolor=blue
 }
 
-\newcommand{\learnbox}[2]{%
-\noindent\fcolorbox{blue!50!black}{blue!5}{%
-\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{\textbf{#1} #2}}%
-}
-
-\title{Transport Analytics Report\\Stage 1 + Stage 2}
+\title{PostgreSQL-Backed Transport Analytics for Paris and New York City}
 \author{Big Data Project}
 \date{\today}
 
 \begin{document}
 \maketitle
 
-\section{Executive Summary}
-
-This project now has a cleaned Python pipeline, a reproducible Stage 1 method
-selection, and five implemented Stage 2 methods aligned with the transport
-analytics objective:
-
-\begin{itemize}
-\item time variation profiling;
-\item weather-impact analysis;
-\item ridership forecasting;
-\item anomaly detection;
-\item contributor ranking and Paris-vs-NYC structural comparison.
-\end{itemize}
-
-The code path was cleaned around chunked raw-data ingestion, canonical fact
-tables, feature engineering, context enrichment, and PostgreSQL loading hooks.
-The execution workflow is now driven from one script:
-\texttt{scripts/run\_stage\_workflow.py}.
-
-\learnbox{Mental model:}{Think of the project as one flow: raw transport files
-\(\rightarrow\) cleaned fact table \(\rightarrow\) features and context
-\(\rightarrow\) five analytical methods \(\rightarrow\) report and SQL outputs.}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\linewidth]{figures/workflow_diagram.png}
-\caption{Visual roadmap of the cleaned transport analytics workflow.}
-\end{figure}
-
-\section{Objective and Data Sources}
-
-The objective is to use multi-source ridership and validation data to extract
-insights, detect patterns, and build predictive models for public transport
-usage.
-
-\subsection*{Primary data used}
-
-\begin{itemize}
-\item STIF / Ile-de-France rail validations (\texttt{NB\_FER} files)
-\item Kaggle Paris/suburbs travel-title validations
-\item IDFM surface validations
-\item NYC MTA hourly ridership
-\end{itemize}
-
-\subsection*{Additional context}
-
-The repository currently does not include a real weather file. The cleaned
-pipeline therefore supports two modes:
-
-\begin{itemize}
-\item load a real \texttt{data/weather\_daily.csv} file if available;
-\item otherwise build a deterministic synthetic weather context for method
-validation and report wiring.
-\end{itemize}
-
-\section{Stage 1: Analytical Questions and Selected Methods}
-
-\subsection*{Analytical questions}
-
-\begin{enumerate}
-\item How does ridership vary by hour, day, month, and year?
-\item What is the impact of weather conditions on ridership?
-\item Can we predict future ridership levels?
-\item Are there anomalies or unusual spikes in validations?
-\item Which stations or lines contribute most to overall traffic?
-\item Are there structural differences between Paris and NYC ridership patterns?
-\end{enumerate}
-
-\subsection*{Five selected methods}
-
-\small
-\begin{tabular}{|p{4.0cm}|p{3.6cm}|p{3.6cm}|p{3.8cm}|}
-\hline
-\textbf{Question block} & \textbf{Selected method} & \textbf{Family} & \textbf{Output} \\
-\hline
-Time variation & Temporal profiling & Descriptive analytics & Weekday, monthly, yearly, and hourly summaries \\
-\hline
-Weather effect & Weather sensitivity regression & Statistical learning & Correlations and regression coefficients \\
-\hline
-Future demand & Lag-based random forest forecasting & Machine learning & Holdout predictions and forecast metrics \\
-\hline
-Spikes / unusual days & Hybrid anomaly detection & Unsupervised + statistical & Anomaly flags and anomaly rates \\
-\hline
-Contributors + Paris vs NYC & Contribution ranking and city comparison & Comparative analytics & Top contributors and structural comparison tables \\
-\hline
-\end{tabular}
-\normalsize
-
-\learnbox{How to remember Stage 1:}{Every question is paired with one method
-family and one concrete output table. If you remember the output, you can
-reconstruct the method.}
-
-\section{Pipeline Cleanup and Code Cleanup}
-
-The previous project code was a light scaffold. The cleanup completed the
-following structural improvements.
-
-\begin{enumerate}
-\item Replaced memory-heavy loaders with chunked ingestion for the largest raw
-CSV files.
-\item Removed unused datasets from the core path of the canonical fact-table
-builder. The TGV regularity file remains available in the repo, but it is no
-longer loaded into the core ridership pipeline because it does not contribute
-to the selected Stage 1 / Stage 2 objectives.
-\item Added one canonical station/line fact table:
-\texttt{data/processed/station\_fact\_table.csv}.
-\item Added one clean daily aggregate:
-\texttt{data/processed/daily\_fact\_table.csv}.
-\item Extended feature engineering with year, day-of-year, lag-14,
-rolling-30 statistics, and rolling z-scores.
-\item Added calendar and weather context enrichment, producing:
-\texttt{data/processed/daily\_fact\_table\_enriched.csv}.
-\item Added a reusable Stage 2 analysis module that writes structured outputs
-under \texttt{report/results/}.
-\item Added PostgreSQL loading support for fact, calendar, and weather outputs.
-\end{enumerate}
-
-\subsection*{Main files added or upgraded}
-
-\begin{itemize}
-\item \texttt{src/transport\_analytics/pipeline.py}
-\item \texttt{src/transport\_analytics/context.py}
-\item \texttt{src/transport\_analytics/features.py}
-\item \texttt{src/transport\_analytics/methods.py}
-\item \texttt{src/transport\_analytics/postgres.py}
-\item \texttt{scripts/run\_stage\_workflow.py}
-\end{itemize}
-
-\section{Stage 2: Implemented Methods}
-
-\subsection*{Method 1: Temporal profiling}
-
-This method answers the demand variation question with:
-
-\begin{itemize}
-\item weekday profiles from the enriched daily table;
-\item monthly average profiles;
-\item yearly totals;
-\item NYC hourly totals from the raw MTA file;
-\item Paris hourly validation-share profiles from the \texttt{PROFIL\_FER} files.
-\end{itemize}
-
-Outputs:
-
-\begin{itemize}
-\item \texttt{report/results/temporal\_weekday\_profile.csv}
-\item \texttt{report/results/temporal\_monthly\_profile.csv}
-\item \texttt{report/results/temporal\_yearly\_totals.csv}
-\item \texttt{report/results/temporal\_nyc\_hourly\_profile.csv}
-\item \texttt{report/results/temporal\_paris\_hourly\_profile.csv}
-\end{itemize}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.92\linewidth]{figures/temporal_profiles.png}
-\caption{Temporal learning view: monthly seasonality and hourly demand shape.}
-\end{figure}
-
-\subsection*{Method 2: Weather sensitivity regression}
-
-This method aggregates demand to city-day level and fits a linear regression on
-log-demand using temperature, precipitation, wind, weekend flag, and month.
-This is the correct baseline for answering the weather question before moving
-to more advanced causal designs.
-
-Outputs:
-
-\begin{itemize}
-\item \texttt{report/results/weather\_regression\_coefficients.csv}
-\item \texttt{report/results/weather\_correlations.csv}
-\end{itemize}
-
-\subsection*{Method 3: Lag-based random forest forecasting}
-
-This method uses:
-
-\begin{itemize}
-\item lag-1, lag-7, lag-14;
-\item rolling means and rolling standard deviations;
-\item day-of-week, month, and weekend indicators;
-\item weather context;
-\item categorical one-hot encoding for region, source, and metric type.
-\end{itemize}
-
-It performs a time-ordered train/test split and writes holdout predictions and
-metrics.
-
-Outputs:
-
-\begin{itemize}
-\item \texttt{report/results/forecast\_metrics\_overall.csv}
-\item \texttt{report/results/forecast\_metrics\_by\_city.csv}
-\item \texttt{report/results/forecast\_predictions.csv}
-\end{itemize}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.94\linewidth]{figures/weather_and_forecast.png}
-\caption{Weather relationships and forecasting behavior from the current run.}
-\end{figure}
-
-\subsection*{Method 4: Hybrid anomaly detection}
-
-This method combines two views of abnormality:
-
-\begin{itemize}
-\item a rolling z-score baseline (\(|z| \ge 2.5\));
-\item an \texttt{IsolationForest} anomaly detector on value and lag/rolling
-features.
-\end{itemize}
-
-An observation is flagged if either method detects it.
-
-Outputs:
-
-\begin{itemize}
-\item \texttt{report/results/anomaly\_flags.csv}
-\item \texttt{report/results/anomaly\_rates.csv}
-\end{itemize}
-
-\subsection*{Method 5: Contribution ranking and city comparison}
-
-This method addresses two project questions:
-
-\begin{itemize}
-\item Which stations or lines contribute most?
-\item How do Paris and NYC differ structurally?
-\end{itemize}
-
-It ranks top contributors from the station/line fact table and compares city
-totals using average daily demand, variability, weekend/weekday ratio, and peak
-month.
-
-Outputs:
-
-\begin{itemize}
-\item \texttt{report/results/top\_contributors.csv}
-\item \texttt{report/results/city\_structure\_summary.csv}
-\item \texttt{report/results/city\_monthly\_structure.csv}
-\end{itemize}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.94\linewidth]{figures/anomalies_and_contributors.png}
-\caption{Anomaly-rate comparison and the highest-contributing locations.}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.86\linewidth]{figures/city_structure.png}
-\caption{City-level structural comparison for memory and interpretation.}
-\end{figure}
-
-\section{Local Execution Results}
-
-\subsection*{Execution mode}
-
-The validated end-to-end run used:
-
-\begin{itemize}
-\item \texttt{scripts/run\_stage\_workflow.py --sample}
-\item synthetic demo weather because no real weather CSV exists in the repo
-\end{itemize}
-
-The sample mode is honest but not perfectly balanced. Paris has much longer
-coverage than NYC because the MTA raw file is time-ordered and even a large
-sample chunk only covers a small slice of dates. The full-mode pipeline is
-implemented for broader execution later.
-
-\learnbox{Important caveat:}{The visuals below come from a validated sample-mode
-run. They teach the method correctly, but NYC should be re-run in full mode for
-final-grade comparison strength.}
-
-\subsection*{Pipeline summary}
-
-\begin{itemize}
-\item station fact rows: 605,817
-\item daily rows: 962
-\item selected methods: 5
-\item weather source: \texttt{synthetic\_demo}
-\end{itemize}
-
-\subsection*{Forecast metrics}
-
-\small
-\begin{tabular}{|p{2.0cm}|p{2.5cm}|p{2.5cm}|p{2.2cm}|p{1.6cm}|}
-\hline
-\textbf{City} & \textbf{MAE} & \textbf{RMSE} & \textbf{MAPE} & \textbf{Rows} \\
-\hline
-NYC & 114,313.46 & 135,490.96 & 11.3943 & 5 \\
-\hline
-Paris & 193,363.65 & 284,473.61 & 0.6625 & 169 \\
-\hline
-\end{tabular}
-\normalsize
-
-Interpretation: the forecasting method is implemented and produces predictions,
-but the sample split is still much richer for Paris than NYC.
-
-\subsection*{Weather results}
-
-\begin{itemize}
-\item Paris in-sample weather model \(R^2\): 0.4023
-\item NYC in-sample weather model \(R^2\): 0.0245
-\item Paris precipitation correlation: 0.5503
-\item Paris wind correlation: 0.5756
-\item NYC weather correlations are weak in this sample because NYC coverage is
-thin.
-\end{itemize}
-
-\subsection*{Anomaly rates}
-
-\begin{itemize}
-\item NYC MTA daily series anomaly rate: 0.3600
-\item Paris \texttt{idf\_nb\_fer} anomaly rate: 0.0096
-\item Paris \texttt{idfm\_surface} anomaly rate: 0.0000
-\item Paris \texttt{travel\_titles\_paris} anomaly rate: 0.0323
-\end{itemize}
-
-\subsection*{Top contributors in the current run}
-
-The strongest contributors are major Paris rail hubs, led by:
-
-\begin{itemize}
-\item Saint-Lazare
-\item La Defense-Grande Arche
-\item Gare de Lyon
-\item Gare du Nord
-\item Montparnasse
-\end{itemize}
-
-\subsection*{City structure comparison}
-
-\small
-\begin{tabular}{|p{1.8cm}|p{2.4cm}|p{2.4cm}|p{2.1cm}|p{2.1cm}|p{1.6cm}|}
-\hline
-\textbf{City} & \textbf{Avg daily value} & \textbf{Std daily value} & \textbf{Coeff. variation} & \textbf{Weekend/weekday} & \textbf{Peak month} \\
-\hline
-NYC & 3.24e6 & 1.08e6 & 0.3325 & 0.8417 & 4 \\
-\hline
-Paris & 2.86e6 & 1.89e6 & 0.6623 & 0.4732 & 2 \\
-\hline
-\end{tabular}
-\normalsize
-
-Interpretation: in the current run, Paris shows stronger relative variability
-and a sharper weekday orientation, while NYC appears flatter on the weekend
-ratio. These findings should be rechecked with a full MTA run for a stronger
-cross-city comparison.
-
-\section{Step-by-Step Execution Guide}
-
-\begin{enumerate}
-\item Open the project root.
-\item Use the shared virtual environment or install the dependencies listed in
-\texttt{requirements.txt}.
-\item Run the cleaned workflow:
-\texttt{../.venv/bin/python scripts/run\_stage\_workflow.py --sample}
-\item Inspect processed outputs in \texttt{data/processed/}.
-\item Inspect analytical outputs in \texttt{report/results/}.
-\item Read this report and the consolidated workbook.
-\item If you have PostgreSQL credentials, load the outputs using
-\texttt{write\_pipeline\_outputs()} after applying the SQL schema.
-\end{enumerate}
-
-\section{What Was Finished}
-
-\begin{itemize}
-\item Stage 1 analytical questions are now explicitly defined in this report and
-materialized in \texttt{report/results/stage1\_method\_plan.csv}.
-\item Five Stage 2 methods are implemented in code and executed locally.
-\item The pipeline was cleaned and made chunk-safe for large raw files.
-\item The report now explains the workflow, results, caveats, and next steps.
-\end{itemize}
-
-\section{Remaining Caveat}
-
-The only major limitation left is data coverage balance in sample mode. The
-full-mode workflow is implemented, but the full MTA aggregation takes
-significantly longer because the raw file is 5.9 GB. That is an execution-time
-constraint, not a design gap in the cleaned pipeline.
-
-\appendix
-
-\section{Appendix A: Basics You Need to Understand This Project}
-
-\subsection*{1. What is a fact table?}
-
-A fact table is the main analysis table. Each row represents one measured event
-or observation. In this project, the cleaned station fact table stores:
-
-\begin{itemize}
-\item a date;
-\item a region;
-\item a location identifier and name;
-\item a source;
-\item a metric type;
-\item a numeric value.
-\end{itemize}
-
-\subsection*{2. Why do we clean raw CSV files before modeling?}
-
-Raw files use different:
-
-\begin{itemize}
-\item separators (\texttt{,}, \texttt{;}, tab);
-\item date formats;
-\item numeric conventions;
-\item schemas.
-\end{itemize}
-
-If we do not normalize these first, every downstream analysis becomes fragile.
-
-\subsection*{3. What is a lag feature?}
-
-A lag feature is a past value used to predict the future. For example:
-
-\begin{itemize}
-\item \texttt{lag\_1}: yesterday's demand
-\item \texttt{lag\_7}: demand seven days ago
-\item \texttt{lag\_14}: demand two weeks ago
-\end{itemize}
-
-These are standard forecasting features because transport demand is strongly
-autocorrelated.
-
-\subsection*{4. What is a rolling mean?}
-
-A rolling mean averages the last \(n\) observations. It smooths noise and makes
-trend and baseline level easier to model. The project now computes:
-
-\begin{itemize}
-\item \texttt{rolling\_7\_mean}
-\item \texttt{rolling\_7\_std}
-\item \texttt{rolling\_30\_mean}
-\item \texttt{rolling\_30\_std}
-\end{itemize}
-
-\subsection*{5. What is a z-score?}
-
-A z-score tells you how far one observation is from its rolling baseline in
-units of standard deviation. Large absolute values are suspicious and often
-indicate spikes or drops.
-
-\subsection*{6. Why random forest for forecasting?}
-
-Random forests are practical because they:
-
-\begin{itemize}
-\item work with nonlinear relationships;
-\item handle mixed numeric and categorical information;
-\item require less tuning than many advanced sequence models;
-\item give a strong baseline before deeper time-series models.
-\end{itemize}
-
-\subsection*{7. What is Isolation Forest?}
-
-Isolation Forest is an unsupervised anomaly detector. It tries to isolate
-observations that look unlike the rest of the data. It is useful when you do
-not have labels telling you which events are true anomalies.
-
-\subsection*{8. What is PostgreSQL doing here?}
-
-PostgreSQL is the structured storage layer. Python prepares and enriches the
-data, then PostgreSQL stores it so you can query:
-
-\begin{itemize}
-\item daily demand;
-\item weather-enriched demand;
-\item rolling statistics;
-\item anomaly-oriented views and joins.
-\end{itemize}
-
-\section{Appendix B: Beginner-to-Finish Checklist}
-
-\begin{enumerate}
-\item Understand the input folders:
-\texttt{datasets/} and \texttt{data/}.
-\item Run the cleaned workflow in sample mode.
-\item Open the generated CSVs in \texttt{data/processed/}.
-\item Read the Stage 1 plan in \texttt{report/results/stage1\_method\_plan.csv}.
-\item Inspect forecasting, anomaly, weather, and comparison outputs under
+\begin{abstract}
+This project analyzes public-transport demand in Paris and New York City using
+PostgreSQL as the single analytical source of truth. Source tables in the
+\texttt{public} schema are exposed through reporting-clean views in the
+\texttt{transport} schema, then consumed by a Python workflow that generates
+reproducible result tables and figures. The final method set contains four
+components: temporal profiling, lag-based forecasting, anomaly detection, and
+contributor / city-structure comparison. On the current reporting scope, the
+forecasting baseline achieves an overall mean absolute percentage error of
+\(6.02\%\), with stronger performance for NYC (\(5.86\%\)) than Paris
+(\(6.94\%\)). Paris shows a higher anomaly rate (\(8.96\%\)) than NYC
+(\(0.73\%\)), while Paris also exhibits higher average daily demand
+(\(\approx 4.13\) million) than NYC (\(\approx 2.63\) million).
+\end{abstract}
+
+\section{Introduction}
+
+The goal of this project is to compare large-scale transport demand patterns in
+Paris and New York City using one reproducible analytical workflow. Earlier
+iterations of the repository mixed exploratory notebook material, local-file
+assumptions, and placeholder narrative. The current baseline removes that
+ambiguity: PostgreSQL stores the authoritative source data, SQL views define the
+reporting contract, and Python produces the final derived outputs under
 \texttt{report/results/}.
-\item Load outputs into PostgreSQL if you want SQL exploration.
-\item After that, replace the synthetic weather source with a real weather file
-to strengthen the weather-impact method.
-\item Finally, run the workflow without \texttt{--sample} when you are ready for
-the full raw-data pass.
-\end{enumerate}
 
-\section{Appendix C: Important File Map}
+This report is written from the current generated outputs rather than from
+earlier placeholder material. The emphasis is on defensible interpretation:
+how demand evolves over time, how well a simple forecasting model performs,
+which observations are anomalous, and which stations dominate total traffic.
+
+\section{Data and Architecture}
+
+The project reads three source datasets already loaded into PostgreSQL:
 
 \begin{itemize}
-\item \texttt{src/transport\_analytics/pipeline.py}: chunked ingestion and
-canonical facts
-\item \texttt{src/transport\_analytics/context.py}: calendar and weather
-enrichment
-\item \texttt{src/transport\_analytics/features.py}: lag and rolling features
-\item \texttt{src/transport\_analytics/methods.py}: the five Stage 2 methods
-\item \texttt{src/transport\_analytics/postgres.py}: PostgreSQL loading
-\item \texttt{scripts/run\_stage\_workflow.py}: one-command execution
-\item \texttt{report/results/}: method outputs and summary tables
+\item \texttt{public.idfm\_daily\_validations} with station-level Paris daily validations,
+\item \texttt{public.idfm\_hourly\_profiles} with Paris hourly validation shares,
+\item \texttt{public.mta\_hourly\_ridership} with NYC hourly ridership.
 \end{itemize}
+
+Reference tables \texttt{public.idfm} and \texttt{public.mta} provide network
+metadata. The analytical contract is defined in the \texttt{transport} schema:
+
+\begin{itemize}
+\item \texttt{v\_daily\_demand} for reporting-clean daily demand,
+\item \texttt{v\_nyc\_hourly\_profile} and \texttt{v\_paris\_hourly\_profile},
+\item \texttt{v\_contributor\_source} for station contribution ranking,
+\item \texttt{v\_city\_structure\_source} for city-level comparison.
+\end{itemize}
+
+Incomplete boundary years are excluded from the reporting views, which removes
+the partial Paris 2025 year from the final result set. The final workflow
+contains \(12{,}696\) daily rows and \(2{,}003\) contributor rows in the
+generated summary output.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/workflow_diagram.png}
+\caption{Final PostgreSQL-first analysis flow used by the project.}
+\end{figure}
+
+\section{Methods}
+
+The final method set contains four components.
+
+\textbf{Temporal profiling.} Daily demand is summarized by weekday, month, and
+year, while hourly profiles are analyzed separately for NYC ridership and Paris
+validation shares.
+
+\textbf{Forecasting.} A lag-based random forest baseline uses lag features,
+rolling statistics, and calendar features. The model is evaluated with a
+time-ordered train/test split.
+
+\textbf{Anomaly detection.} A hybrid rule combines rolling z-scores with an
+\texttt{IsolationForest} model fitted on value and lag-derived features.
+
+\textbf{Contributor and city-structure analysis.} Station-level demand is
+ranked to identify dominant contributors, and city-level summaries are computed
+for average daily demand, variability, seasonality, and weekend sensitivity.
+
+\section{Results}
+
+\subsection{Temporal patterns}
+
+The yearly totals confirm the reporting-clean scope: NYC covers 2020--2024 and
+Paris covers 2015--2024, with the partial 2025 year removed. Monthly structure
+is visibly different across the two systems. NYC peaks in winter and early
+autumn, while Paris peaks in October and weakens sharply in August.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/temporal_profiles.png}
+\caption{Monthly demand and NYC hourly ridership profile from the current run.}
+\end{figure}
+
+\subsection{Forecasting}
+
+The forecasting baseline remains strong enough to support the final paper. The
+overall model is trained on \(8{,}336\) rows and evaluated on \(4{,}276\) rows,
+with an overall MAE of \(52{,}909\), RMSE of \(156{,}343\), and MAPE of
+\(6.02\%\).
+
+\begin{table}[t]
+\centering
+\caption{Forecast accuracy by city}
+\begin{tabular}{lrrr}
+\toprule
+City & MAE & RMSE & MAPE \\
+\midrule
+NYC & 29,402 & 62,965 & 5.86\% \\
+Paris & 187,446 & 376,361 & 6.94\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+NYC forecasts are more stable in absolute terms, but both cities remain within
+a single-digit MAPE range. This is sufficient for a baseline forecasting
+section in the final report, although the Paris series is clearly harder to
+predict due to larger swings and lower short-term regularity.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/forecast_performance.png}
+\caption{Forecast quality from the current PostgreSQL-backed result set.}
+\end{figure}
+
+\subsection{Anomalies}
+
+Anomaly rates remain highly asymmetric between the two cities. NYC has an
+anomaly rate of \(0.73\%\), while Paris reaches \(8.96\%\). The largest Paris
+anomalies cluster around 2020 disruption and recovery periods, whereas NYC
+outliers are concentrated around holiday and unusually weak weekend traffic.
+
+\subsection{Contributors and city structure}
+
+Paris has the larger system-level demand in the current reporting scope. Its
+average daily demand is approximately \(4.13\) million versus \(2.63\) million
+for NYC. Paris also shows a lower weekend-to-weekday ratio (\(0.512\)) than NYC
+(\(0.584\)), which indicates stronger weekday concentration.
+
+\begin{table}[t]
+\centering
+\caption{City structure summary}
+\begin{tabular}{lrrr}
+\toprule
+City & Avg daily & Weekend/weekday & Peak month \\
+\midrule
+NYC & 2.63M & 0.584 & 2 \\
+Paris & 4.13M & 0.512 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The top contributor table is plausible after label cleanup. Paris is dominated
+by Saint-Lazare, La D\'efense--Grande Arche, Gare de Lyon, Gare du Nord, and
+Montparnasse. NYC is led by Times Sq--42 St, Grand Central--42 St,
+34 St--Herald Sq, and 14 St--Union Sq.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/anomalies_and_contributors.png}
+\caption{Anomaly-rate contrast and top contributors in the cleaned result set.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/city_structure.png}
+\caption{Average daily demand and weekend sensitivity by city.}
+\end{figure}
+
+\section{Discussion and Limitations}
+
+The project is now aligned around a reproducible database-backed workflow, but
+several limitations remain.
+
+First, the forecasting model is intentionally a baseline rather than a final
+production forecaster. It captures broad structure well, but it does not model
+special events, strikes, weather, or network interventions.
+
+Second, the anomaly analysis is descriptive rather than causal. The flagged
+observations indicate unusual behavior, but they do not prove why it happened.
+
+Third, contributor ranking depends on the quality of station labeling in the
+source tables. The obvious whitespace issues were removed during Stage 2
+cleanup, but semantically similar stations are still treated as distinct when
+their identifiers differ.
+
+Finally, the notebook and report are derived from generated outputs rather than
+from live database queries at compile time. That is acceptable for submission,
+but it means the result regeneration step remains part of the reproducibility
+contract.
+
+\section{Conclusion}
+
+The project now has a coherent final analytical baseline. PostgreSQL is the
+single source of truth, the reporting views remove incomplete comparison years,
+and the generated outputs support a defensible paper narrative. The main
+findings are consistent across the final result set: Paris has higher overall
+demand, stronger weekday concentration, and a much higher anomaly rate, while
+NYC is easier to forecast with the current lag-based baseline. The repository is
+now ready for final notebook alignment and submission cleanup rather than
+another major analytical redesign.
+
+\section*{References}
+
+\begin{enumerate}
+\item Project background papers stored under \texttt{docs/papers/}.
+\item Generated analytical outputs stored under \texttt{report/results/}.
+\item PostgreSQL analytical contract defined in \texttt{sql/02\_views.sql}.
+\end{enumerate}
 
 \end{document}

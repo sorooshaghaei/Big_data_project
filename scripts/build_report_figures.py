@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build report figures from generated Stage 1/Stage 2 result tables."""
+"""Build final report figures from generated result tables."""
 
 from __future__ import annotations
 
@@ -51,8 +51,8 @@ def workflow_diagram() -> None:
         ((0.03, 0.35), 0.16, 0.3, "#A8DADC", "PostgreSQL\nSource Tables"),
         ((0.24, 0.35), 0.16, 0.3, "#F1FAEE", "Transport Schema\nAnalytical Views"),
         ((0.45, 0.35), 0.16, 0.3, "#F4A261", "Python Loader\n+ Features"),
-        ((0.66, 0.35), 0.16, 0.3, "#E9C46A", "4 Methods\nStage 1"),
-        ((0.87, 0.35), 0.1, 0.3, "#E76F51", "Report\n+ SQL"),
+        ((0.66, 0.35), 0.16, 0.3, "#E9C46A", "4 Methods\nFinal Run"),
+        ((0.87, 0.35), 0.1, 0.3, "#E76F51", "Paper\n+ Figures"),
     ]
 
     for (x, y), w, h, color, label in boxes:
@@ -118,7 +118,7 @@ def forecast_performance() -> None:
         axes[1].set_title("Forecast MAPE by City")
         axes[1].set_ylabel("MAPE")
 
-    _save(fig, "forecast_performance.png", aliases=["weather_and_forecast.png"])
+    _save(fig, "forecast_performance.png")
 
 
 def anomalies_and_contributors() -> None:
