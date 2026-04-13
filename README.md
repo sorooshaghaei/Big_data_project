@@ -1,6 +1,6 @@
 # Big_data_project
 
-This repository contains the final report assets, SQL views, and Python analysis code for a public-transport analytics project comparing Paris and NYC demand patterns.
+This repository contains the final report assets, SQL views, and Python analysis code for a public-transport analytics project comparing Paris and NYC demand patterns. The official workflow is PostgreSQL-first and the report is written from generated outputs under `report/results/`.
 
 The current repository baseline is:
 
@@ -12,13 +12,13 @@ The current repository baseline is:
 - figure and workflow scripts under `scripts/`
 - project planning/audit notes under `docs/`
 
-## What Is In The Repo
+## Contents
 
 ### Notebook
 
 - `notebooks/transport_analytics_workbook.ipynb`
 
-This is the main notebook currently tracked in the repository.
+Supporting walkthrough aligned with the paper. It reads generated outputs rather than rerunning the full workflow by default.
 
 ### Report
 
@@ -33,7 +33,7 @@ These are the main written project artifacts.
 - `sql/02_views.sql`
 - `sql/03_analytics_examples.sql`
 
-These files define and query the project’s analytical SQL layer.
+These files define and query the project’s analytical SQL layer and reporting contract.
 
 ### Python Code
 
@@ -41,15 +41,25 @@ These files define and query the project’s analytical SQL layer.
 - `scripts/run_stage_workflow.py`
 - `scripts/build_report_figures.py`
 
-This code contains the project’s analysis logic and report-generation helpers.
+This code contains the project’s analysis logic and report-generation helpers. The official entrypoint is `scripts/run_stage_workflow.py`, which writes `report/results/`.
 
-## Current Repository State
+## Current State
 
 - Source datasets are not stored in this repository.
 - PostgreSQL is the analysis source of truth.
-- `report/results/` contains the generated Stage 2 result set used by the paper.
+- `report/results/` contains the generated result set used by the paper.
 - `report/figures/` is generated from those result tables.
 - `notebooks/transport_analytics_workbook.ipynb` is a supporting notebook, not the source of truth for the project narrative.
+
+## Quick Start (PostgreSQL-first)
+
+```bash
+set -a
+source .env
+set +a
+.venv/bin/python scripts/run_stage_workflow.py
+MPLCONFIGDIR=/tmp/mpl .venv/bin/python scripts/build_report_figures.py
+```
 
 ## Useful Files
 
