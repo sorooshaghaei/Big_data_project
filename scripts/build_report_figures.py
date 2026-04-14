@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build report figures from generated Stage 1/Stage 2 result tables."""
+"""Build final report figures from generated result tables."""
 
 from __future__ import annotations
 
@@ -33,23 +33,26 @@ def _style() -> None:
     )
 
 
-def _save(fig: plt.Figure, name: str) -> None:
+def _save(fig: plt.Figure, name: str, *, aliases: list[str] | None = None) -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(FIGURES / name, dpi=180, bbox_inches="tight")
+    targets = [name, *(aliases or [])]
+    for target in targets:
+        fig.savefig(FIGURES / target, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
 def workflow_diagram() -> None:
+    print("[progress] Building workflow diagram")
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.set_axis_off()
 
     boxes = [
-        ((0.03, 0.35), 0.16, 0.3, "#A8DADC", "Raw Sources\nSTIF / Kaggle / MTA"),
-        ((0.24, 0.35), 0.16, 0.3, "#F1FAEE", "Chunked Cleaning\n+ Canonical Fact"),
-        ((0.45, 0.35), 0.16, 0.3, "#F4A261", "Features\n+ Context"),
-        ((0.66, 0.35), 0.16, 0.3, "#E9C46A", "5 Methods\nStage 2"),
-        ((0.87, 0.35), 0.1, 0.3, "#E76F51", "Report\n+ SQL"),
+        ((0.03, 0.35), 0.16, 0.3, "#A8DADC", "PostgreSQL\nSource Tables"),
+        ((0.24, 0.35), 0.16, 0.3, "#F1FAEE", "Transport Schema\nAnalytical Views"),
+        ((0.45, 0.35), 0.16, 0.3, "#F4A261", "Python Loader\n+ Features"),
+        ((0.66, 0.35), 0.16, 0.3, "#E9C46A", "4 Methods\nFinal Run"),
+        ((0.87, 0.35), 0.1, 0.3, "#E76F51", "Paper\n+ Figures"),
     ]
 
     for (x, y), w, h, color, label in boxes:
@@ -63,11 +66,12 @@ def workflow_diagram() -> None:
         arrow = FancyArrowPatch((x1 + 0.01, 0.5), (x2 - 0.01, 0.5), arrowstyle="-|>", mutation_scale=18, lw=1.8, color="#264653")
         ax.add_patch(arrow)
 
-    ax.text(0.5, 0.9, "Transport Analytics Learning Flow", ha="center", va="center", fontsize=16, weight="bold", color="#1D3557")
+    ax.text(0.5, 0.9, "PostgreSQL-First Transport Analytics Flow", ha="center", va="center", fontsize=16, weight="bold", color="#1D3557")
     _save(fig, "workflow_diagram.png")
 
 
 def temporal_profiles() -> None:
+    print("[progress] Building temporal profile figure")
     monthly = pd.read_csv(RESULTS / "temporal_monthly_profile.csv")
     nyc_hourly = pd.read_csv(RESULTS / "temporal_nyc_hourly_profile.csv")
 
@@ -91,42 +95,34 @@ def temporal_profiles() -> None:
     _save(fig, "temporal_profiles.png")
 
 
-def weather_and_forecast() -> None:
-    weather = pd.read_csv(RESULTS / "weather_correlations.csv")
+def forecast_performance() -> None:
+    print("[progress] Building forecast performance figure")
     forecast = pd.read_csv(RESULTS / "forecast_predictions.csv")
+    metrics = pd.read_csv(RESULTS / "forecast_metrics_by_city.csv")
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.4))
-
-    if not weather.empty:
-        corr_long = weather.melt(id_vars="city", value_vars=["corr_temp", "corr_precip", "corr_wind"], var_name="feature", value_name="correlation")
-        colors = {"corr_temp": "#E76F51", "corr_precip": "#2A9D8F", "corr_wind": "#264653"}
-        width = 0.22
-        cities = list(weather["city"])
-        x = range(len(cities))
-        for idx, feature in enumerate(["corr_temp", "corr_precip", "corr_wind"]):
-            vals = corr_long[corr_long["feature"] == feature]["correlation"].tolist()
-            axes[0].bar([v + (idx - 1) * width for v in x], vals, width=width, label=feature.replace("corr_", ""), color=colors[feature])
-        axes[0].set_xticks(list(x))
-        axes[0].set_xticklabels(cities)
-        axes[0].set_title("Weather Correlations by City")
-        axes[0].set_ylabel("Correlation")
-        axes[0].legend()
 
     if not forecast.empty:
         forecast["date"] = pd.to_datetime(forecast["date"])
         plot_df = forecast.groupby(["date", "city"], as_index=False)[["value", "prediction"]].sum().sort_values("date")
         for city, group in plot_df.groupby("city"):
-            axes[1].plot(group["date"], group["value"], linewidth=2, label=f"{city} actual")
-            axes[1].plot(group["date"], group["prediction"], linestyle="--", label=f"{city} predicted")
-        axes[1].set_title("Forecast: Actual vs Predicted")
-        axes[1].set_xlabel("Date")
-        axes[1].set_ylabel("Demand")
-        axes[1].legend(fontsize=8)
+            axes[0].plot(group["date"], group["value"], linewidth=2, label=f"{city} actual")
+            axes[0].plot(group["date"], group["prediction"], linestyle="--", label=f"{city} predicted")
+        axes[0].set_title("Forecast: Actual vs Predicted")
+        axes[0].set_xlabel("Date")
+        axes[0].set_ylabel("Demand")
+        axes[0].legend(fontsize=8)
 
-    _save(fig, "weather_and_forecast.png")
+    if not metrics.empty:
+        axes[1].bar(metrics["city"], metrics["mape"], color=["#1D3557", "#E63946"])
+        axes[1].set_title("Forecast MAPE by City")
+        axes[1].set_ylabel("MAPE")
+
+    _save(fig, "forecast_performance.png")
 
 
 def anomalies_and_contributors() -> None:
+    print("[progress] Building anomaly and contributor figure")
     anomaly = pd.read_csv(RESULTS / "anomaly_rates.csv")
     contributors = pd.read_csv(RESULTS / "top_contributors.csv").head(12)
 
@@ -148,6 +144,7 @@ def anomalies_and_contributors() -> None:
 
 
 def city_structure() -> None:
+    print("[progress] Building city structure figure")
     city = pd.read_csv(RESULTS / "city_structure_summary.csv")
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
 
@@ -168,7 +165,7 @@ def main() -> int:
     _style()
     workflow_diagram()
     temporal_profiles()
-    weather_and_forecast()
+    forecast_performance()
     anomalies_and_contributors()
     city_structure()
     print(f"Wrote figures to {FIGURES}")

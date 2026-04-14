@@ -9,6 +9,7 @@ from .config import PostgresConfig, ProjectPaths
 from .context import enrich_daily_with_context, infer_city
 from .features import add_time_features
 from .methods import run_stage_workflow, stage_one_plan
+from .postgres import load_postgres_artifacts
 from .pipeline import PipelineArtifacts, build_daily_fact_table, build_station_fact_table, run_local_pipeline
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "build_station_fact_table",
     "enrich_daily_with_context",
     "infer_city",
+    "load_postgres_artifacts",
     "run_local_pipeline",
     "run_stage_workflow",
     "stage_one_plan",
