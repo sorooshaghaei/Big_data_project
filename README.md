@@ -24,6 +24,7 @@ Big_data_project/
 │   ├── baseline.py            # compatibility wrapper
 │   └── utils.py               # compatibility wrapper
 ├── sql/
+│   ├── 00_db_schema.sql
 │   ├── 01_schema.sql
 │   ├── 02_views.sql
 │   └── 03_analytics_examples.sql
