@@ -1,0 +1,21 @@
+city,source,location_name,total_value
+Paris,idfm_station_daily,SAINT-LAZARE,432319111.0
+Paris,idfm_station_daily,LA DEFENSE-GRANDE ARCHE,325308024.0
+Paris,idfm_station_daily,GARE DE LYON,291642740.0
+Paris,idfm_station_daily,GARE DU NORD,247209096.0
+Paris,idfm_station_daily,MONTPARNASSE,246781733.0
+Paris,idfm_station_daily,GARE DE L'EST,227129241.0
+NYC,mta_station_daily,"Times Sq-42 St (N,Q,R,W,S,1,2,3,7)/42 St (A,C,E)",168202157.0
+Paris,idfm_station_daily,CHATELET-LES HALLES,165508076.0
+Paris,idfm_station_daily,CHATELET,140154050.0
+NYC,mta_station_daily,"Grand Central-42 St (S,4,5,6,7)",115353629.0
+Paris,idfm_station_daily,REPUBLIQUE,113632868.0
+Paris,idfm_station_daily,LES HALLES,111340201.0
+NYC,mta_station_daily,"34 St-Herald Sq (B,D,F,M,N,Q,R,W)",97401047.0
+Paris,idfm_station_daily,NATION,95242222.0
+NYC,mta_station_daily,"14 St-Union Sq (L,N,Q,R,W,4,5,6)",86561174.0
+Paris,idfm_station_daily,BIBLIOTHEQUE FRANCOIS MITTERRAND,86416457.0
+Paris,idfm_station_daily,AUSTERLITZ,85993304.0
+Paris,idfm_station_daily,BASTILLE,80097146.0
+Paris,idfm_station_daily,BELLEVILLE,75954720.0
+Paris,idfm_station_daily,PLACE D'ITALIE,74884977.0

@@ -1,0 +1,5 @@
+question,method_name,method_family,inputs,outputs,selected
+How does ridership vary by hour/day/month/year?,Temporal profiling,Descriptive analytics,Daily fact table + hourly profiles,"Weekday, monthly, yearly, and hourly summaries",True
+Can we predict future ridership levels?,Lag-based random forest forecasting,Machine learning,Time features and rolling demand features,Holdout predictions and forecast metrics,True
+Are there anomalies or unusual spikes in validations?,Hybrid anomaly detection,Unsupervised learning + statistics,Daily fact features and rolling z-scores,Anomaly flags and anomaly-rate summary,True
+"Which stations contribute most, and how do Paris and NYC differ structurally?",Contribution ranking and city comparison,Comparative analytics,Station fact table + city-level aggregates,Top contributors and structural comparison table,True

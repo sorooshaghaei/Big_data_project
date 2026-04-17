@@ -1,0 +1,3 @@
+city,source,anomaly_rate
+NYC,mta_station_daily,0.007334428024083197
+Paris,idfm_station_daily,0.08958157820836844

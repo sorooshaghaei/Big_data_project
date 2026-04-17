@@ -1,88 +1,81 @@
 # Big_data_project
 
-This repository contains the final report assets, SQL views, and Python analysis code for a public-transport analytics project comparing Paris and NYC demand patterns. The official workflow is PostgreSQL-first and the report is written from generated outputs under `report/results/`.
+Course project comparing Paris and NYC public-transport demand with a PostgreSQL-first analysis workflow
 
-The current repository baseline is:
+## Datasets
 
-- a main notebook: `notebooks/transport_analytics_workbook.ipynb`
-- a LaTeX report: `report/transport_analytics_compendium.tex`
-- the compiled report PDF: `report/transport_analytics_compendium.pdf`
-- SQL schema/views/examples under `sql/`
-- Python analysis code under `src/transport_analytics/`
-- figure and workflow scripts under `scripts/`
-- project planning/audit notes under `docs/`
+The project uses five source tables loaded into PostgreSQL:
 
-## Contents
+- `public.idfm_daily_validations`
+- `public.idfm_hourly_profiles`
+- `public.mta_hourly_ridership`
+- `public.idfm`
+- `public.mta`
 
-### Notebook
+## Architecture
 
+- PostgreSQL is the source of truth
+- `sql/00_db_schema.sql` creates the raw table layout
+- `sql/01_schema.sql` and `sql/02_views.sql` create the reporting schema and views
+- `scripts/run_stage_workflow.py` reads PostgreSQL and writes `report/results/`
+- `scripts/build_report_figures.py` rebuilds `report/figures/`
+- `src/transport_analytics/legacy_*.py` is old local-file code and is not part of the final submission path
+
+## Files That Matter
+
+- `report/transport_analytics_compendium.tex` and `report/transport_analytics_compendium.pdf`
+- `report/results/`
+- `report/figures/`
 - `notebooks/transport_analytics_workbook.ipynb`
-
-Supporting walkthrough aligned with the paper. It reads generated outputs rather than rerunning the full workflow by default.
-
-### Report
-
-- `report/transport_analytics_compendium.tex`
-- `report/transport_analytics_compendium.pdf`
-
-These are the main written project artifacts.
-
-### SQL
-
 - `sql/00_db_schema.sql`
 - `sql/01_schema.sql`
 - `sql/02_views.sql`
-- `sql/03_analytics_examples.sql`
-
-These files cover both the database bootstrap and the analytical SQL contract.
-`sql/00_db_schema.sql` creates the raw PostgreSQL tables expected by the
-project when you are starting from an empty database; `sql/01_schema.sql` and
-`sql/02_views.sql` define the analytical layer used by the workflow.
-
-### Python Code
-
-- `src/transport_analytics/`
 - `scripts/run_stage_workflow.py`
 - `scripts/build_report_figures.py`
+- `docs/POSTGRES_DBEAVER_IMPORT.md`
 
-This code contains the project’s analysis logic and report-generation helpers. The official entrypoint is `scripts/run_stage_workflow.py`, which writes `report/results/`.
+## Rerun The Analysis
 
-## Current State
-
-- Source datasets are not stored in this repository.
-- PostgreSQL is the analysis source of truth.
-- `sql/00_db_schema.sql` is available when you need to bootstrap the raw source-table layout in PostgreSQL.
-- `report/results/` contains the generated result set used by the paper.
-- `report/figures/` is generated from those result tables.
-- `notebooks/transport_analytics_workbook.ipynb` is a supporting notebook, not the source of truth for the project narrative.
-
-## Quick Start (PostgreSQL-first)
+Install dependencies:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Load the PostgreSQL settings:
+
+```bash
+cp .env.example .env
 set -a
 source .env
 set +a
-# Optional when your PostgreSQL instance does not already contain
-# the raw MTA / IDFM source tables:
-# psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f sql/00_db_schema.sql
-# Then apply the project analytical layer:
-# psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f sql/01_schema.sql
-# psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f sql/02_views.sql
-.venv/bin/python scripts/run_stage_workflow.py
-MPLCONFIGDIR=/tmp/mpl .venv/bin/python scripts/build_report_figures.py
 ```
 
-## Useful Files
+Prepare the database with the same process used for this project:
 
-- `docs/AGILE_EXECUTION_PLAN.md`
-- `docs/STAGE_0_BASELINE_AUDIT.md`
-- `docs/PROJECT_STRUCTURE.md`
-- `docs/GIT_NOTEBOOK_FILTER_SETUP.md`
-- `presentation/metro_ridership_forecasting_isa_tf.pdf`
+- run `sql/00_db_schema.sql`
+- import the five source tables with DBeaver
+- run `sql/01_schema.sql`
+- run `sql/02_views.sql`
+- detailed steps are in `docs/POSTGRES_DBEAVER_IMPORT.md`
 
-## Requirements
+Run the analysis:
 
-Python dependencies are listed in `requirements.txt`.
+```bash
+.venv/bin/python scripts/run_stage_workflow.py
+.venv/bin/python scripts/build_report_figures.py
+```
+
+The full-data PostgreSQL run can take several minutes because the reporting views read the whole dataset
+
+## Main Findings
+
+- Paris has higher average daily demand than NYC at about `4.13M` versus `2.63M`
+- the lag-based baseline reaches single-digit MAPE in both cities: `5.86%` for NYC and `6.94%` for Paris
+- Paris shows a much higher anomaly rate than NYC: `8.96%` versus `0.73%`
+- top contributors include Saint-Lazare, La Defense-Grande Arche, Gare de Lyon, Times Sq--42 St, and Grand Central--42 St
 
 ## Authors
 

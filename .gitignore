@@ -58,6 +58,7 @@ coverage.xml
 #################################
 *.log
 pip-log.txt
+.tmp/
 
 #################################
 # IDEs / editors
@@ -103,6 +104,8 @@ wandb/
 mlruns/
 lightning_logs/
 tensorboard/
+!report/results/
+!report/results/**
 
 #################################
 # Report (keep slides + notes, ignore temp)
@@ -128,12 +131,3 @@ presentation/source/**/*.toc
 presentation/source/**/*.synctex.gz
 presentation/source/**/*.fdb_latexmk
 presentation/source/**/*.fls
-
-#################################
-# Optional: common outputs
-#################################
-outputs/
-results/
-runs/
-models/
-checkpoints/

@@ -1,0 +1,16 @@
+city,source,metric_type,year,total_value
+NYC,mta_station_daily,ridership,2020,643310841.0
+NYC,mta_station_daily,ridership,2021,763914510.0
+NYC,mta_station_daily,ridership,2022,1020579704.0
+NYC,mta_station_daily,ridership,2023,1163346962.0
+NYC,mta_station_daily,ridership,2024,1211512903.0
+Paris,idfm_station_daily,validations,2015,1494044146.0
+Paris,idfm_station_daily,validations,2016,1590141809.0
+Paris,idfm_station_daily,validations,2017,1672252929.0
+Paris,idfm_station_daily,validations,2018,1675803004.0
+Paris,idfm_station_daily,validations,2019,1695721547.0
+Paris,idfm_station_daily,validations,2020,926003724.0
+Paris,idfm_station_daily,validations,2021,1255736205.0
+Paris,idfm_station_daily,validations,2022,1632867255.0
+Paris,idfm_station_daily,validations,2023,1729743023.0
+Paris,idfm_station_daily,validations,2024,1024228946.0

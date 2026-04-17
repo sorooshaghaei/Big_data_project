@@ -1,0 +1,15 @@
+city,source,metric_type,day_of_week,avg_value
+NYC,mta_station_daily,ridership,0,544536.8268199234
+NYC,mta_station_daily,ridership,1,612376.9042145594
+NYC,mta_station_daily,ridership,2,623257.6360153257
+NYC,mta_station_daily,ridership,3,616522.4727969349
+NYC,mta_station_daily,ridership,4,586239.5095785441
+NYC,mta_station_daily,ridership,5,389081.14329501917
+NYC,mta_station_daily,ridership,6,308188.5111111111
+Paris,idfm_station_daily,validations,0,4516370.088408644
+Paris,idfm_station_daily,validations,1,4918469.029527559
+Paris,idfm_station_daily,validations,2,4871046.133858268
+Paris,idfm_station_daily,validations,3,4888784.772102161
+Paris,idfm_station_daily,validations,4,4787433.84675835
+Paris,idfm_station_daily,validations,5,2957977.8958742633
+Paris,idfm_station_daily,validations,6,1952515.6856581531
