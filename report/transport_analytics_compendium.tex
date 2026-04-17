@@ -32,7 +32,7 @@
 \vfuzz=3pt
 \raggedbottom
 
-\title{Public Transport Demand Analysis in Paris and New York City}
+\title{Comparing Public-Transport Demand in Paris and New York City}
 \author{
 Maksym DOLHOV \and Mehdi AGHAEI \and Ho Bao Khanh Nguyen \and Nima DAVARI
 }
@@ -59,17 +59,16 @@ multiple people work on notebooks, SQL, figures, and report text at the same
 time.
 
 This project compares Paris and New York City transport demand through one
-shared analytical contract. PostgreSQL stores the authoritative data, SQL
-views expose reporting-ready inputs, Python generates result tables and
-figures. 
+common data-processing pipeline. The raw tables are stored in PostgreSQL,
+cleaned with SQL, and then analyzed in Python to produce the tables and
+figures used in the report.
 
 The report analyzes Paris and NYC with four methods: temporal profiling,
 lag-based forecasting, anomaly detection, and contributor / city-structure
-analysis. The PostgreSQL views feed the notebook, result tables, figures, and
-report text from the same generated outputs. The analysis answers four
-questions: how the two systems differ over time, how well a lag-based baseline
-predicts daily demand, which observations are anomalous, and which stations
-account for the largest validated or observed totals.
+analysis. More specifically, it asks four questions: how the two systems differ
+over time, how well a lag-based baseline predicts daily demand, which
+observations look unusual, and which stations account for the largest observed
+totals.
 
 
 \section{Related Work}
@@ -114,21 +113,21 @@ scoring as an analytical screening layer that helps highlight periods worth
 interpretation in the report.
 
 Other recent papers define tasks that are outside the scope of the current
-workflow. He et al.~\cite{he2018ridership} analyzed factors that
+study. He et al.~\cite{he2018ridership} analyzed factors that
 influence station ridership in a specific metro context, while Chen
 et al.~\cite{chen2025trip} explored trip-purpose and socio-economic inference
 from transit users. Kundu et al.~\cite{kundu2025line} examined heterogeneous
 effects from a new transit line. Those studies show how quickly transport
-analytics can become policy-rich and context-heavy. The current workflow uses
+analytics can become policy-rich and context-heavy. The current project uses
 that literature to define analytical questions, but it stops short of causal or
 socio-economic interpretation that the current dataset cannot support directly.
 
 Taken together, the literature defines three tasks used in this paper:
 descriptive mining, baseline forecasting, and disruption-aware analysis.
-The implemented pipeline applies those tasks through a reporting-ready
-PostgreSQL contract, a Paris-vs-NYC comparison, and one generated result set
-from which the metrics, figures, and report text are derived. The scope is a
-comparative analytical workflow rather than a new predictive architecture.
+In this project, those tasks are applied to a Paris-vs-NYC comparison using
+one cleaned dataset and one consistent set of result files. The goal is not to
+propose a new predictive architecture, but to build a clear comparative
+baseline.
 
 \section{Data Description}
 
@@ -163,11 +162,18 @@ The two cities are not perfectly symmetric in source structure. Paris provides
 direct daily station validations plus separate hourly profile shares, while NYC
 starts from hourly ridership observations that must be rolled up into daily
 station totals. The project therefore does not claim one-to-one measurement
-equivalence at every intermediate step. Instead, it defines a cleaned reporting
-scope where both systems can be compared at daily city and station level while
-preserving the source-specific hourly views needed for temporal interpretation.
+equivalence at every intermediate step. Instead, we define one common
+comparison scope in which both systems can be studied at daily city and station
+level while still keeping the source-specific hourly views needed for temporal
+interpretation.
 
-To ensure comparability, we exclude incomplete boundary years from the final comparison views; accordingly, the partial Paris 2025 observations are omitted from the reporting contract. Under this harmonized scope, the generated dataset contains 12,696 daily observations and 2,003 contributor-level station records, as reported in \nolinkurl{analysis_summary.json}. This sample size is sufficient to support robust descriptive analysis and baseline predictive modeling, while remaining compact enough to preserve transparency, reproducibility, and interpretability across the workflow.
+To keep the comparison fair, we exclude incomplete boundary years from the
+final analysis. For that reason, the partial Paris 2025 observations are not
+used in the main comparison tables. Under this harmonized scope, the dataset
+contains 12,696 daily observations and 2,003 contributor-level station
+records, as reported in \nolinkurl{analysis_summary.json}. This sample size is
+large enough for descriptive analysis and baseline predictive modeling while
+still remaining easy to inspect and interpret.
 
 Two additional data choices are important. First, the contributor
 analysis uses station-grain Paris rows only, which avoids mixing line-level and
@@ -177,7 +183,8 @@ city-structure outputs. This consistency matters because it prevents the paper
 from comparing annual summaries built from one scope with contributor totals
 built from another.
 
-The generated result files reflect that same scope. Temporal outputs are written to separate yearly, monthly, weekday, and hourly CSV files;
+The saved result files follow that same scope. Temporal outputs are written to
+separate yearly, monthly, weekday, and hourly CSV files;
 forecasting outputs are split into overall metrics, city metrics, and holdout
 predictions; anomaly outputs are split into row-level flags and city-level
 rates; and contributor outputs are separated from city structure summaries. This
@@ -193,46 +200,49 @@ comparative analysis of trend, forecastability, anomaly concentration, and hub
 dominance.
 
 
-\section{PostgreSQL Workflow Architecture}
+\section{Analysis Workflow}
 
-PostgreSQL was chosen as the analytical backbone because the project needed one
-stable source of truth that multiple artifacts could consume without reloading
-or cleaning raw files separately. A CSV-first workflow would have left the
-report, notebook, and scripts vulnerable to local path drift and inconsistent
-intermediate cleaning steps. By contrast, PostgreSQL allows the raw uploaded
-tables to remain intact in the \texttt{public} schema while the cleaned
-reporting contract is expressed through SQL views in a separate \texttt{transport} schema.
+PostgreSQL was used as the main data-processing layer because the project
+needed one place to store, clean, and query the transport data before analysis.
+If the work had been done with scattered CSV files only, it would have been
+easier for the notebook, scripts, and report text to drift apart. With
+PostgreSQL, the raw uploaded tables remain in the \texttt{public} schema while
+the cleaned analysis views are created in the \texttt{transport} schema.
 
-That schema split is central to the design. The \texttt{public} schema
-holds source-level operational tables. The \texttt{transport} schema holds
-reporting-ready views such as \nolinkurl{v_daily_demand},
+That separation helps keep the work organized. The \texttt{public} schema
+holds the source tables, and the \texttt{transport} schema holds cleaned views
+such as \nolinkurl{v_daily_demand},
 \nolinkurl{v_nyc_hourly_profile}, \nolinkurl{v_paris_hourly_profile},
 \nolinkurl{v_contributor_source}, and \nolinkurl{v_city_structure_source}.
-This means the SQL layer, not the notebook, defines the cleaned year scope and
-contributor label normalization used in the report. The Python workflow
-then consumes those views and writes the derived CSV outputs under
+This means the year scope and contributor cleaning are defined in SQL rather
+than being handled manually in a notebook. The Python analysis
+then reads those views and writes the derived CSV outputs under
 \nolinkurl{report/results/}, which are in turn used by the notebook, figure
 builder, and paper text.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/workflow_diagram.png}
-\caption{PostgreSQL-first workflow used for the generated outputs.}
+\caption{Main data-processing steps used in the project.}
 \end{figure}
 
-This design improves reproducibility in two ways. First, it removes dependence
-on local raw files from the official workflow path. Second, it makes each
-quantitative claim traceable to either a SQL view or a generated result file.
-The workflow requirement for this report is one stable analytical contract;
-server deployment details are outside the paper's scope.
+This setup improves reproducibility in two simple ways. First, it avoids having
+multiple versions of cleaned data spread across different files. Second, it
+makes it easier to trace each quantitative claim back to either a SQL view or a
+saved result file. The technical details of server deployment are not the main
+focus of the paper; what matters here is that the same cleaned data were used
+throughout the analysis.
 
-The contract is implemented as a multi-stage big data processing workflow. Initially, SQL views are used to normalize date ranges, standardize contributor identifiers, and compute daily aggregates. Subsequently, a Python pipeline extracts and engineers time-series features from these curated datasets and exports the processed outputs in CSV format. 
+In practice, the analysis has two stages. First, SQL is used to align date
+ranges, standardize contributor identifiers, and compute daily aggregates.
+Second, Python builds time-series features from those cleaned tables and writes
+the outputs used in the figures and results tables.
 
 
 \begin{table}[t]
 \centering
 \footnotesize
-\caption{Key PostgreSQL analytical views}
+\caption{Main PostgreSQL views used in the analysis}
 \begin{tabular}{@{}L{0.38\columnwidth}L{0.54\columnwidth}@{}}
 \toprule
 View & Role in the workflow \\
@@ -262,7 +272,7 @@ tables \nolinkurl{temporal_yearly_totals.csv},
 \nolinkurl{temporal_paris_hourly_profile.csv}. These files summarize the
 cleaned reporting layer by year, month, weekday, and hour. Because the method
 reads directly from the reporting views, implausible yearly totals or monthly
-patterns would indicate a problem in the SQL contract before later forecasting
+patterns would suggest a problem in the cleaned data before later forecasting
 or anomaly outputs are interpreted.
 
 \subsection{Lag-based forecasting}
@@ -316,7 +326,7 @@ dominant hubs, or both.
 \begin{table}[t]
 \centering
 \scriptsize
-\caption{Method-to-output mapping in the workflow}
+\caption{Method-to-output mapping used in the project}
 {\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}L{0.21\linewidth}L{0.29\linewidth}L{0.40\linewidth}@{}}
 \toprule
@@ -337,7 +347,7 @@ Contributors & station-level facts, city daily aggregates & top contributors and
 
 \subsubsection{Execution environment}
 
-The database layer that backed the PostgreSQL query workflow ran on a Google
+The PostgreSQL database used for the analysis ran on a Google
 Cloud \texttt{e2-standard-2} instance with 2 vCPUs, 8 GB of memory, an Intel
 Broadwell CPU platform, \texttt{x86/64} architecture, and no GPU. This
 hardware description is intentionally narrow: it documents the PostgreSQL host
@@ -346,7 +356,7 @@ used for Python execution, notebook inspection, or LaTeX compilation.
 
 \subsubsection{Datasets and reporting scope}
 
-The experiments use the same cleaned reporting contract described earlier. The
+The experiments use the same comparison scope described earlier. The
 core demand inputs are \nolinkurl{public.idfm_daily_validations},
 \nolinkurl{public.idfm_hourly_profiles}, and
 \nolinkurl{public.mta_hourly_ridership}; the reference tables are
@@ -354,7 +364,7 @@ core demand inputs are \nolinkurl{public.idfm_daily_validations},
 contains \(12{,}696\) daily observations and \(2{,}003\) contributor-level
 rows according to \nolinkurl{analysis_summary.json}. Coverage in the cleaned yearly
 output spans 2020--2024 for NYC and 2015--2024 for Paris, with the incomplete
-Paris 2025 year excluded from the comparison-oriented views.
+Paris 2025 year excluded from the main comparison tables.
 
 \begin{table}[t]
 \centering
@@ -379,7 +389,7 @@ Artifact / source & Role & Grain / scope & Evidence \\
 
 \subsubsection{Protocols and evaluation}
 
-Each experiment uses one named protocol tied to generated artifacts. Temporal profiling aggregates the cleaned daily and hourly views into yearly, monthly, weekday, and hourly summaries. Forecasting uses a time-ordered holdout split with cutoff date \texttt{2023-01-03}, and reports MAE, RMSE, and MAPE from \nolinkurl{forecast_metrics_overall.csv} and \nolinkurl{forecast_metrics_by_city.csv}. Anomaly detection applies the hybrid rolling-z-score plus \texttt{IsolationForest} design and evaluates the output
+Each experiment uses one clear setup linked to saved result files. Temporal profiling aggregates the cleaned daily and hourly views into yearly, monthly, weekday, and hourly summaries. Forecasting uses a time-ordered holdout split with cutoff date \texttt{2023-01-03}, and reports MAE, RMSE, and MAPE from \nolinkurl{forecast_metrics_overall.csv} and \nolinkurl{forecast_metrics_by_city.csv}. Anomaly detection applies the hybrid rolling-z-score plus \texttt{IsolationForest} design and evaluates the output
 through anomaly-rate summaries rather than classification accuracy. Contributor
 and city-structure analysis ranks stations and summarizes city-level aggregates
 as a comparative descriptive experiment.
@@ -404,9 +414,9 @@ similar pandemic-era break, but the amplitude is smaller in absolute terms
 because the baseline level is lower.
 
 This experiment uses the cleaned daily demand view together with the two hourly
-profile views. Its protocol is descriptive aggregation. The workflow produces
-yearly, monthly, weekday, and hourly-profile CSV summaries, and the paper reads
-those generated artifacts rather than issuing live analytical queries.
+profile views. It is descriptive rather than predictive. This part of the
+analysis produces yearly, monthly, weekday, and hourly-profile summaries, and
+the paper reads those saved outputs rather than issuing live analytical queries.
 
 \begin{figure}[t]
 \centering
@@ -652,8 +662,8 @@ Sources: \nolinkurl{city_structure_summary.csv},
 \end{table}
 
 The daily summaries, anomaly tables, and contributor rankings all come from one
-cleaned view layer. As a result, these sections use one city scope, one
-contributor grain, and one set of generated outputs.
+cleaned data layer. As a result, these sections use one city scope, one
+contributor grain, and one consistent set of saved outputs.
 
 \begin{figure}[t]
 \centering
@@ -669,12 +679,12 @@ contributor grain, and one set of generated outputs.
 
 \section{Discussion and Limitations}
 
-The workflow defines a reproducible analytical baseline, not a claim that the
-present method stack is the best available for transport demand modeling. The
-forecasting component remains a baseline model. It is transparent, quick to
-rerun, and suitable for comparing the two cleaned city series, but it does not
-model richer network or event effects in the way graph-based and more
-specialized temporal models might
+This report should be read as a baseline study, not as an attempt to use the
+most advanced model available for transport demand prediction. The forecasting
+component is intentionally simple. It is transparent, quick to rerun, and
+useful for comparing the two cleaned city series, but it does not model richer
+network or event effects in the way graph-based and more specialized temporal
+models might
 \cite{xie2022graph,lablack2019astir}.
 
 The anomaly layer should also be interpreted carefully. A flagged observation is
@@ -689,16 +699,16 @@ source identifiers differ. That is acceptable for the current paper because the
 top-ranked stations remain plausible, but it limits how aggressively the report
 should interpret small differences among nearby hubs.
 
-Finally, the reproducibility contract depends on generated outputs rather than
-live database queries at paper compile time. This is a reasonable compromise for
-a project report: the SQL views and workflow define one stable path, and the
-paper cites the outputs of that path. Still, if the database changes, the
-workflow must be rerun before the report should be updated.
+Finally, the paper depends on saved result files rather than live database
+queries at compile time. For a course project, this is a reasonable compromise:
+the same cleaning and analysis steps can be rerun, but the paper itself stays
+linked to a fixed set of outputs. If the database changes, the analysis should
+be rerun before the report is updated.
 
 This alignment matters in practice. When notebook text, SQL logic, figures,
 and report claims drift apart, individual metrics become difficult to trace or
-defend. The PostgreSQL-first workflow reduces that risk by keeping those
-artifacts on one result contract.
+defend. The current workflow reduces that risk by keeping those artifacts tied
+to the same cleaned data and result files.
 
 At the same time, the report should not hide the remaining frontier. Better
 forecasting likely requires richer external context, more explicit modeling of
@@ -706,7 +716,7 @@ network dependence, or both. Better anomaly interpretation would require event
 labeling or an external disruption calendar. More aggressive contributor
 harmonization would require domain judgment about semantically related stations.
 Those are meaningful next steps, but they are extensions to a stable baseline,
-not fixes for a broken workflow.
+not corrections to a broken analysis.
 
 For planning-oriented interpretation, the current outputs indicate that a city
 with stronger weekday concentration and higher anomaly rate requires more
@@ -729,10 +739,10 @@ Overall, the project shows that a structured and reproducible workflow can suppo
 
 Large language models were used as editing support to help refactor and
 restructure parts of the codebase and report text during the project. Their use
-was limited to workflow and writing assistance rather than as a source of final
-project evidence. All quantitative claims, generated outputs, and final report
-statements were checked against the repository artifacts and generated result
-files before inclusion in the report.
+was limited to coding and writing assistance rather than as a source of final
+project evidence. All quantitative claims and final report statements were
+checked against the repository artifacts and saved result files before
+inclusion in the report.
 
 \begingroup
 \footnotesize
