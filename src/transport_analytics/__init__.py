@@ -19,17 +19,12 @@ __all__ = [
 
 _EXPORTS = {
     "PostgresConfig": ".config",
-    "ProjectPaths": ".legacy_config",
-    "enrich_daily_with_context": ".legacy_context",
     "infer_city": ".context",
     "add_time_features": ".features",
     "run_stage_workflow": ".methods",
     "stage_one_plan": ".methods",
     "load_postgres_artifacts": ".postgres",
     "PipelineArtifacts": ".pipeline",
-    "build_daily_fact_table": ".legacy_pipeline",
-    "build_station_fact_table": ".legacy_pipeline",
-    "run_local_pipeline": ".legacy_pipeline",
 }
 
 

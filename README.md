@@ -19,20 +19,40 @@ We worked with five tables loaded into PostgreSQL:
 - `sql/01_schema.sql` and `sql/02_views.sql` prepare the cleaned tables and views used for the analysis
 - `scripts/run_stage_workflow.py` generates the result files in `report/results/`
 - `scripts/build_report_figures.py` rebuilds the figures in `report/figures/`
-- `src/transport_analytics/legacy_*.py` contains older experiments and is not needed to rerun the final version
 
-## Files That Matter
+## repo structure
 
-- `report/transport_analytics_compendium.tex` and `report/transport_analytics_compendium.pdf`
-- `report/results/`
-- `report/figures/`
-- `notebooks/transport_analytics_workbook.ipynb`
-- `sql/00_db_schema.sql`
-- `sql/01_schema.sql`
-- `sql/02_views.sql`
-- `scripts/run_stage_workflow.py`
-- `scripts/build_report_figures.py`
-- `docs/POSTGRES_DBEAVER_IMPORT.md`
+Big_data_project_submission/
+├── README.md
+├── requirements.txt
+├── LICENSE
+├── .gitignore
+├── .env.example
+├── sql/
+│   ├── 00_db_schema.sql
+│   ├── 01_schema.sql
+│   ├── 02_views.sql
+│   └── 03_analytics_examples.sql  
+├── src/
+│   └── transport_analytics/
+│       ├── __init__.py
+│       ├── config.py
+│       ├── context.py
+│       ├── features.py
+│       ├── methods.py
+│       ├── pipeline.py
+│       └── postgres.py
+├── scripts/
+│   ├── run_stage_workflow.py
+│   └── build_report_figures.py
+├── notebooks/
+│   └── transport_analytics_workbook.ipynb
+├── report/
+│   ├── transport_analytics_compendium.pdf
+│   ├── transport_analytics_compendium.tex
+│   ├── results/
+│   └── figures/
+└── 
 
 ## Rerun The Analysis
 
