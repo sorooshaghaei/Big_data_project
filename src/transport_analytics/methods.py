@@ -1,6 +1,4 @@
-# Mehdi AGHAEI
-
-"""Stage 1 and Stage 2 analytical methods for the transport project."""
+#Mehdi AGHAEI
 
 from __future__ import annotations
 
@@ -21,7 +19,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from .context import infer_city
 from .pipeline import PipelineArtifacts
 
-
+# one row for the method summary table
 @dataclass
 class StageMethod:
     question: str
@@ -31,22 +29,21 @@ class StageMethod:
     outputs: str
     selected: bool = True
 
-
-def _ensure_dirs(root: Path) -> tuple[Path, Path]:
+# prepares the output folders for the report
+def _ensure_output_dir(root: Path) -> Path:
     results_dir = root / "report" / "results"
     figures_dir = root / "report" / "figures"
     results_dir.mkdir(parents=True, exist_ok=True)
     figures_dir.mkdir(parents=True, exist_ok=True)
-    return results_dir, figures_dir
+    return results_dir
 
-
+# passes progress text to the caller
 def _emit_progress(progress: Callable[[str], None] | None, message: str) -> None:
     if progress is not None:
         progress(message)
 
-
+# lists the four methods used in the project
 def stage_one_plan() -> pd.DataFrame:
-    """Return the Stage 1 method selection table."""
     methods = [
         StageMethod(
             question="How does ridership vary by hour/day/month/year?",
@@ -79,9 +76,8 @@ def stage_one_plan() -> pd.DataFrame:
     ]
     return pd.DataFrame([asdict(item) for item in methods])
 
-
-def temporal_profile_method(artifacts: PipelineArtifacts, results_dir: Path, figures_dir: Path) -> dict[str, pd.DataFrame]:
-    """Summarize demand variation by day, month, year, and hour."""
+# groups demand by time patterns
+def temporal_profile_method(artifacts: PipelineArtifacts, results_dir: Path) -> dict[str, pd.DataFrame]:
     enriched = artifacts.enriched.copy()
     enriched["city"] = infer_city(enriched["region"])
 
@@ -128,15 +124,13 @@ def temporal_profile_method(artifacts: PipelineArtifacts, results_dir: Path, fig
         "paris_hourly": paris_hourly,
     }
 
-
+# trains the forecast baseline and scores it
 def forecasting_method(
     artifacts: PipelineArtifacts,
     results_dir: Path,
-    figures_dir: Path,
     *,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Train a lag-based random forest forecasting baseline."""
     df = artifacts.enriched.copy()
     df["city"] = infer_city(df["region"])
 
@@ -232,15 +226,13 @@ def forecasting_method(
 
     return {"overall_metrics": overall_metrics, "by_city": by_city, "predictions": test}
 
-
+# marks days that look unusual
 def anomaly_method(
     artifacts: PipelineArtifacts,
     results_dir: Path,
-    figures_dir: Path,
     *,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Detect unusual demand observations with a hybrid anomaly rule."""
     df = artifacts.enriched.copy()
     df["city"] = infer_city(df["region"])
     feature_cols = ["value", "lag_1", "lag_7", "rolling_7_mean", "rolling_7_std", "pct_change_1", "zscore_30"]
@@ -289,13 +281,11 @@ def anomaly_method(
 
     return {"anomalies": anomalies, "anomaly_rate": anomaly_rate}
 
-
+# compares key stations and city patterns
 def contribution_and_structure_method(
     artifacts: PipelineArtifacts,
     results_dir: Path,
-    figures_dir: Path,
 ) -> dict[str, pd.DataFrame]:
-    """Rank top contributors and compare Paris vs NYC structure."""
     station_fact = artifacts.station_fact.copy()
     station_fact["city"] = infer_city(station_fact["region"])
 
@@ -349,34 +339,33 @@ def contribution_and_structure_method(
 
     return {"contributors": contributors, "city_summary": city_summary, "monthly_city": monthly_city}
 
-
+# writes the full set of stage outputs
 def run_stage_workflow(
     artifacts: PipelineArtifacts,
     root: Path,
     *,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, object]:
-    """Run Stage 1 planning outputs and the selected analytical methods."""
-    results_dir, figures_dir = _ensure_dirs(root)
+    results_dir = _ensure_output_dir(root)
 
     _emit_progress(progress, "Writing Stage 1 method plan")
     stage1 = stage_one_plan()
     stage1.to_csv(results_dir / "stage1_method_plan.csv", index=False)
 
     _emit_progress(progress, "Running temporal profiling")
-    temporal = temporal_profile_method(artifacts, results_dir, figures_dir)
+    temporal = temporal_profile_method(artifacts, results_dir)
     _emit_progress(progress, "Temporal profiling complete")
 
     _emit_progress(progress, "Running forecasting")
-    forecast = forecasting_method(artifacts, results_dir, figures_dir, progress=progress)
+    forecast = forecasting_method(artifacts, results_dir, progress=progress)
     _emit_progress(progress, "Forecasting complete")
 
     _emit_progress(progress, "Running anomaly detection")
-    anomaly = anomaly_method(artifacts, results_dir, figures_dir, progress=progress)
+    anomaly = anomaly_method(artifacts, results_dir, progress=progress)
     _emit_progress(progress, "Anomaly detection complete")
 
     _emit_progress(progress, "Running contributor and city-structure analysis")
-    comparison = contribution_and_structure_method(artifacts, results_dir, figures_dir)
+    comparison = contribution_and_structure_method(artifacts, results_dir)
     _emit_progress(progress, "Contributor and city-structure analysis complete")
 
     outputs = {

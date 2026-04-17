@@ -9,10 +9,10 @@ one consistent workflow.
 
 The following public artifacts now describe the same execution model:
 
-- [README.md](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/README.md)
-- [PROJECT_STRUCTURE.md](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/docs/PROJECT_STRUCTURE.md)
-- [transport_analytics_compendium.tex](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/report/transport_analytics_compendium.tex)
-- [transport_analytics_workbook.ipynb](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/notebooks/transport_analytics_workbook.ipynb)
+- [README.md](../README.md)
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+- [transport_analytics_compendium.tex](../report/transport_analytics_compendium.tex)
+- [transport_analytics_workbook.ipynb](../notebooks/transport_analytics_workbook.ipynb)
 
 They all present the same official flow:
 
@@ -36,9 +36,9 @@ paths are confined to:
 
 - legacy implementation code under `src/transport_analytics/`
 - historical audit/planning notes such as
-  [STAGE_0_BASELINE_AUDIT.md](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/docs/STAGE_0_BASELINE_AUDIT.md)
+  [STAGE_0_BASELINE_AUDIT.md](STAGE_0_BASELINE_AUDIT.md)
   and
-  [AGILE_EXECUTION_PLAN.md](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/docs/AGILE_EXECUTION_PLAN.md)
+  [AGILE_EXECUTION_PLAN.md](AGILE_EXECUTION_PLAN.md)
 
 Those references are acceptable because they are either:
 

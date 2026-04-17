@@ -1,5 +1,6 @@
-# Mehdi AGHAEI
-"""Input/output helpers for mixed-format transport datasets."""
+#Mehdi AGHAEI
+# should not be used in the final PostgreSQL-first submission path.
+# legacy raw-file readers kept only for the older local-file workflow
 
 from __future__ import annotations
 
@@ -10,37 +11,34 @@ import pandas as pd
 
 DEFAULT_ENCODINGS = ("utf-8-sig", "utf-8", "latin1", "cp1252", "utf-16")
 
-
+# guesses the separator from the first line
 def detect_separator(file_path: Path) -> str:
-    """Infer delimiter from the header line."""
     header = file_path.open("rb").readline().decode("latin1", errors="ignore")
     candidates = {",": header.count(","), ";": header.count(";"), "\t": header.count("\t")}
     return max(candidates, key=candidates.get)
 
-
+# tries common encodings until the file opens
 def _read_csv_with_fallback(file_path: Path, **kwargs) -> pd.DataFrame:
-    """Read a CSV-like file using fallback encodings."""
     sep = kwargs.pop("sep", detect_separator(file_path))
     last_error: Exception | None = None
 
     for enc in DEFAULT_ENCODINGS:
         try:
             return pd.read_csv(file_path, sep=sep, encoding=enc, low_memory=False, **kwargs)
-        except Exception as exc:  # pragma: no cover - fallback behavior
+        except Exception as exc:
             last_error = exc
 
     raise RuntimeError(f"Unable to read {file_path}: {last_error}")
 
-
+# opens one table with simple defaults
 def read_table_smart(
     file_path: Path,
     nrows: int | None = None,
     usecols: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Read CSV/TXT using inferred delimiter and fallback encodings."""
     return _read_csv_with_fallback(file_path, nrows=nrows, usecols=usecols)
 
-
+# streams a table in small pieces
 def iter_table_smart(
     file_path: Path,
     *,
@@ -48,7 +46,6 @@ def iter_table_smart(
     usecols: list[str] | None = None,
     nrows: int | None = None,
 ):
-    """Yield CSV/TXT chunks using fallback encodings."""
     sep = detect_separator(file_path)
     last_error: Exception | None = None
 
@@ -66,14 +63,13 @@ def iter_table_smart(
             for chunk in reader:
                 yield chunk
             return
-        except Exception as exc:  # pragma: no cover - fallback behavior
+        except Exception as exc:
             last_error = exc
 
     raise RuntimeError(f"Unable to iterate over {file_path}: {last_error}")
 
-
+# cleans messy number text
 def clean_numeric(series: pd.Series) -> pd.Series:
-    """Normalize mixed numeric strings to float."""
     s = series.astype(str).str.strip()
 
     s = s.str.replace("\u00a0", "", regex=False)
@@ -84,9 +80,8 @@ def clean_numeric(series: pd.Series) -> pd.Series:
     s = s.replace({"": np.nan, "nan": np.nan, "None": np.nan, "?": np.nan})
     return pd.to_numeric(s, errors="coerce")
 
-
+# parses dates written in mixed formats
 def parse_any_date(series: pd.Series) -> pd.Series:
-    """Parse mixed date formats with explicit fast-paths first."""
     s = series.astype(str).str.strip()
     parsed = pd.to_datetime(s, format="%Y-%m-%d", errors="coerce")
 
@@ -104,13 +99,12 @@ def parse_any_date(series: pd.Series) -> pd.Series:
 
     return parsed
 
-
+# merges grouped chunks into one table
 def combine_grouped_frames(
     frames: list[pd.DataFrame],
     group_cols: list[str],
     value_cols: list[str],
 ) -> pd.DataFrame:
-    """Combine partially grouped frames into one grouped frame."""
     if not frames:
         return pd.DataFrame(columns=[*group_cols, *value_cols])
 

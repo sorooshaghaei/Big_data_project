@@ -2,9 +2,13 @@
 
 This document closes `Stage 5A` using static validation only. It maps the
 current paper claims in
-[`report/transport_analytics_compendium.tex`](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/report/transport_analytics_compendium.tex)
+[`report/transport_analytics_compendium.tex`](../report/transport_analytics_compendium.tex)
 to the generated result artifacts under `report/results/` and to the cited
 literature already stored in `docs/papers/`.
+
+This note records the result artifacts used for the final paper. Some clean
+checkouts may keep the `report/results/` folder structure without committing
+every generated csv or json file.
 
 ## Quantitative claim map
 

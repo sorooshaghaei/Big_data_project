@@ -1,12 +1,7 @@
--- ---------------------------------------------------------------------
--- Stage 2 analytical views built from PostgreSQL source tables
--- Reporting-facing views exclude incomplete years and normalize obvious
--- contributor label issues so downstream outputs stay consistent.
--- ---------------------------------------------------------------------
-
+-- creates the transport schema if it is missing
 CREATE SCHEMA IF NOT EXISTS transport;
 
--- Remove legacy placeholder objects from earlier local-file-first versions.
+-- removes old transport views and tables first
 DROP VIEW IF EXISTS transport.v_city_structure_source CASCADE;
 DROP VIEW IF EXISTS transport.v_contributor_source CASCADE;
 DROP VIEW IF EXISTS transport.v_paris_hourly_profile CASCADE;
@@ -21,8 +16,7 @@ DROP TABLE IF EXISTS transport.fact_demand CASCADE;
 DROP TABLE IF EXISTS transport.dim_calendar CASCADE;
 DROP TABLE IF EXISTS transport.dim_weather CASCADE;
 
--- Raw daily demand aggregate. This preserves the Stage 1 fast path and lets
--- reporting-year coverage be calculated from a much smaller daily layer.
+-- pulls raw daily demand from paris and nyc
 CREATE VIEW transport.v_daily_demand_raw AS
 WITH paris_daily AS (
     SELECT
@@ -60,9 +54,7 @@ SELECT * FROM paris_daily
 UNION ALL
 SELECT * FROM nyc_daily;
 
--- Reporting-safe year scope by city. The project only needs to exclude
--- partial boundary years, so use cheap min/max date bounds rather than
--- scanning every day in the source tables.
+-- finds full years we can safely report
 CREATE VIEW transport.v_reporting_complete_years AS
 WITH city_bounds AS (
     SELECT
@@ -132,6 +124,7 @@ FROM (
     FROM included_years
 ) i;
 
+-- gets the date range for each city
 CREATE VIEW transport.v_reporting_date_ranges AS
 SELECT
     city,
@@ -140,9 +133,7 @@ SELECT
 FROM transport.v_reporting_complete_years
 GROUP BY city;
 
--- Canonical station-grain demand facts, derived directly from PostgreSQL
--- source tables. Paris is restricted to station entities only so later
--- contributor comparisons remain comparable with NYC stations.
+-- builds the final station level demand view
 CREATE VIEW transport.fact_demand AS
 WITH paris_reporting_range AS (
     SELECT start_date, end_date_exclusive::date AS end_date_exclusive
@@ -205,7 +196,7 @@ UNION ALL
 SELECT *
 FROM nyc_station_daily;
 
--- Reporting-clean daily demand aggregated from the raw daily layer.
+-- keeps only daily rows inside the report range
 CREATE VIEW transport.v_daily_demand AS
 WITH paris_reporting_range AS (
     SELECT start_date, end_date_exclusive::date AS end_date_exclusive
@@ -230,7 +221,7 @@ WHERE d.city = 'NYC'
   AND d.demand_date >= r.start_date
   AND d.demand_date < r.end_date_exclusive;
 
--- NYC hourly ridership profile derived from hourly source truth.
+-- shows the nyc hourly profile
 CREATE VIEW transport.v_nyc_hourly_profile AS
 WITH nyc_reporting_range AS (
     SELECT start_date, end_date_exclusive::date AS end_date_exclusive
@@ -255,7 +246,7 @@ GROUP BY
     COALESCE(m.borough, 'NYC')::text,
     EXTRACT(HOUR FROM h.transit_local_hour)::integer;
 
--- Paris hourly validation-share profile restricted to station entities.
+-- shows the paris hourly profile
 CREATE VIEW transport.v_paris_hourly_profile AS
 SELECT
     'Paris'::text AS city,
@@ -271,7 +262,7 @@ WHERE n.network_type = 'station'
   AND p.pct_validations IS NOT NULL
 GROUP BY p.day_type, p.hour_slot;
 
--- Stable source for contributor analysis.
+-- prepares the source table for contributor analysis
 CREATE VIEW transport.v_contributor_source AS
 WITH paris_reporting_range AS (
     SELECT start_date, end_date_exclusive::date AS end_date_exclusive
@@ -360,7 +351,7 @@ SELECT * FROM paris_contributors
 UNION ALL
 SELECT * FROM nyc_contributors;
 
--- Stable source for city-level structural comparisons.
+-- prepares the source table for city comparison
 CREATE VIEW transport.v_city_structure_source AS
 SELECT
     demand_date,

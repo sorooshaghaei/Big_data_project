@@ -1,16 +1,6 @@
-# Mehdi AGHAEI
-"""Reusable transport analytics package exports.
+#Mehdi AGHAEI
 
-This module provides the public API surface so notebook and script code
-can import from one place instead of internal submodules.
-"""
-
-from .config import PostgresConfig, ProjectPaths
-from .context import enrich_daily_with_context, infer_city
-from .features import add_time_features
-from .methods import run_stage_workflow, stage_one_plan
-from .postgres import load_postgres_artifacts
-from .pipeline import PipelineArtifacts, build_daily_fact_table, build_station_fact_table, run_local_pipeline
+from importlib import import_module
 
 __all__ = [
     "PostgresConfig",
@@ -26,3 +16,28 @@ __all__ = [
     "run_stage_workflow",
     "stage_one_plan",
 ]
+
+_EXPORTS = {
+    "PostgresConfig": ".config",
+    "ProjectPaths": ".legacy_config",
+    "enrich_daily_with_context": ".legacy_context",
+    "infer_city": ".context",
+    "add_time_features": ".features",
+    "run_stage_workflow": ".methods",
+    "stage_one_plan": ".methods",
+    "load_postgres_artifacts": ".postgres",
+    "PipelineArtifacts": ".pipeline",
+    "build_daily_fact_table": ".legacy_pipeline",
+    "build_station_fact_table": ".legacy_pipeline",
+    "run_local_pipeline": ".legacy_pipeline",
+}
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module = import_module(_EXPORTS[name], __name__)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value

@@ -1,14 +1,12 @@
--- ---------------------------------------------------------------------
--- Example analytics queries for the PostgreSQL-first contract
--- ---------------------------------------------------------------------
+-- example queries for the project
 
--- 1) Canonical fact demand filter.
+-- shows sample fact demand rows
 SELECT *
 FROM transport.fact_demand
 WHERE demand_date >= DATE '2024-01-01'
   AND city = 'Paris';
 
--- 2) Daily demand by source and city.
+-- sums daily demand by city and source
 SELECT
     city,
     source,
@@ -20,7 +18,7 @@ FROM transport.v_daily_demand
 GROUP BY city, source, metric_type
 ORDER BY summed_daily_value DESC;
 
--- 3) Rolling average with a window function.
+-- adds a rolling 7 day average
 SELECT
     demand_date,
     city,
@@ -35,7 +33,7 @@ SELECT
 FROM transport.v_daily_demand
 ORDER BY city, source, metric_type, demand_date;
 
--- 4) Top contributors across both cities.
+-- shows the biggest contributors
 SELECT
     city,
     source,
@@ -45,7 +43,7 @@ FROM transport.v_contributor_source
 ORDER BY total_value DESC
 LIMIT 20;
 
--- 5) Paris vs NYC structural comparison.
+-- compares city level metrics
 SELECT
     city,
     AVG(total_value) AS avg_daily_value,
@@ -57,7 +55,7 @@ FROM transport.v_city_structure_source
 GROUP BY city
 ORDER BY city;
 
--- 6) NYC hourly ridership profile.
+-- shows the nyc hourly profile
 SELECT
     region,
     hour,
@@ -65,7 +63,7 @@ SELECT
 FROM transport.v_nyc_hourly_profile
 ORDER BY region, hour;
 
--- 7) Paris hourly validation-share profile.
+-- shows the paris hourly profile
 SELECT
     day_category,
     hour_bin,

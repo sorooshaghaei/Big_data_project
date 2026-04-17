@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit executes Stage 0 of [AGILE_EXECUTION_PLAN.md](/home/eversince/Desktop/Coding/Github/S2/Big_data_project/docs/AGILE_EXECUTION_PLAN.md) as far as possible from the repository state alone.
+This audit executes Stage 0 of [AGILE_EXECUTION_PLAN.md](AGILE_EXECUTION_PLAN.md) as far as possible from the repository state alone.
 
 Current limitation:
 

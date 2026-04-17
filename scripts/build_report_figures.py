@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
-"""Build final report figures from generated result tables."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+TMP = ROOT / ".tmp"
+TMP.mkdir(parents=True, exist_ok=True)
+MPLCONFIG = TMP / "mplconfig"
+MPLCONFIG.mkdir(parents=True, exist_ok=True)
+XDG_CACHE = TMP / "xdg-cache"
+XDG_CACHE.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(MPLCONFIG))
+os.environ.setdefault("XDG_CACHE_HOME", str(XDG_CACHE))
 
 import matplotlib
 
@@ -14,12 +23,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 import pandas as pd
 
-
-ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "report" / "results"
 FIGURES = ROOT / "report" / "figures"
 
-
+# keeps one look across every figure
 def _style() -> None:
     plt.rcParams.update(
         {
@@ -32,7 +39,7 @@ def _style() -> None:
         }
     )
 
-
+# writes a figure file into report/figures
 def _save(fig: plt.Figure, name: str, *, aliases: list[str] | None = None) -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
@@ -41,7 +48,16 @@ def _save(fig: plt.Figure, name: str, *, aliases: list[str] | None = None) -> No
         fig.savefig(FIGURES / target, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
+# opens one result csv with a clear error
+def _read_result_csv(name: str) -> pd.DataFrame:
+    path = RESULTS / name
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Missing {path}. Run scripts/run_stage_workflow.py first so report/results is filled"
+        )
+    return pd.read_csv(path)
 
+# sketches the workflow figure
 def workflow_diagram() -> None:
     print("[progress] Building workflow diagram")
     fig, ax = plt.subplots(figsize=(12, 4))
@@ -69,11 +85,11 @@ def workflow_diagram() -> None:
     ax.text(0.5, 0.9, "PostgreSQL-First Transport Analytics Flow", ha="center", va="center", fontsize=16, weight="bold", color="#1D3557")
     _save(fig, "workflow_diagram.png")
 
-
+# plots the main time patterns
 def temporal_profiles() -> None:
     print("[progress] Building temporal profile figure")
-    monthly = pd.read_csv(RESULTS / "temporal_monthly_profile.csv")
-    nyc_hourly = pd.read_csv(RESULTS / "temporal_nyc_hourly_profile.csv")
+    monthly = _read_result_csv("temporal_monthly_profile.csv")
+    nyc_hourly = _read_result_csv("temporal_nyc_hourly_profile.csv")
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
 
@@ -94,11 +110,11 @@ def temporal_profiles() -> None:
 
     _save(fig, "temporal_profiles.png")
 
-
+# plots the forecast results
 def forecast_performance() -> None:
     print("[progress] Building forecast performance figure")
-    forecast = pd.read_csv(RESULTS / "forecast_predictions.csv")
-    metrics = pd.read_csv(RESULTS / "forecast_metrics_by_city.csv")
+    forecast = _read_result_csv("forecast_predictions.csv")
+    metrics = _read_result_csv("forecast_metrics_by_city.csv")
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.4))
 
@@ -120,11 +136,11 @@ def forecast_performance() -> None:
 
     _save(fig, "forecast_performance.png")
 
-
+# shows anomaly rates and top places
 def anomalies_and_contributors() -> None:
     print("[progress] Building anomaly and contributor figure")
-    anomaly = pd.read_csv(RESULTS / "anomaly_rates.csv")
-    contributors = pd.read_csv(RESULTS / "top_contributors.csv").head(12)
+    anomaly = _read_result_csv("anomaly_rates.csv")
+    contributors = _read_result_csv("top_contributors.csv").head(12)
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
 
@@ -142,10 +158,10 @@ def anomalies_and_contributors() -> None:
 
     _save(fig, "anomalies_and_contributors.png")
 
-
+# compares the two city summaries
 def city_structure() -> None:
     print("[progress] Building city structure figure")
-    city = pd.read_csv(RESULTS / "city_structure_summary.csv")
+    city = _read_result_csv("city_structure_summary.csv")
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
 
     if not city.empty:
@@ -159,9 +175,8 @@ def city_structure() -> None:
 
     _save(fig, "city_structure.png")
 
-
+# rebuilds the full figure set
 def main() -> int:
-    os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
     _style()
     workflow_diagram()
     temporal_profiles()
@@ -170,7 +185,6 @@ def main() -> int:
     city_structure()
     print(f"Wrote figures to {FIGURES}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

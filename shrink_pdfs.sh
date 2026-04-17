@@ -1,29 +1,26 @@
 #!/bin/bash
+# script compresses pdf files in the repo
+# it saves a new _compressed file next to each one
 
-# Exit on first error, fail on unset vars, and fail on pipeline errors.
+# stops right away if a command fails
 set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# Compress every PDF in the repository (except already compressed files).
-# Output files are written as *_compressed.pdf next to originals.
-# -----------------------------------------------------------------------------
-
-# Target maximum size in KB (2048 KB = 2 MB).
+# target size in kb
 TARGET_KB=2048
 
-# Find all PDFs excluding existing compressed outputs.
+# looks through pdf files that are not compressed yet
 find . -type f -iname "*.pdf" ! -name "*_compressed.pdf" | while read -r file; do
-    # Build output filename from input path.
+    # makes the new compressed file name
     base_name="${file%.*}"
     out_file="${base_name}_compressed.pdf"
 
-    # Skip file if compressed version already exists.
+    # skips the file if a compressed copy is already there
     if [ -f "$out_file" ]; then
         echo "Skipping: $out_file already exists."
         continue
     fi
 
-    # Skip files already under target size.
+    # skips files that are already small enough
     actual_size=$(du -k "$file" | cut -f1)
     if [ "$actual_size" -le "$TARGET_KB" ]; then
         echo "Already under 2MB: $file"
@@ -32,14 +29,14 @@ find . -type f -iname "*.pdf" ! -name "*_compressed.pdf" | while read -r file; d
 
     echo "Compressing: $file"
 
-    # First attempt: medium compression profile.
+    # tries medium compression first
     gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
        -dNOPAUSE -dQUIET -dBATCH -sOutputFile="$out_file" "$file"
 
     if [ -f "$out_file" ]; then
         new_size=$(du -k "$out_file" | cut -f1)
 
-        # Second attempt: stronger compression profile if still too large.
+        # tries stronger compression if the file is still too big
         if [ "$new_size" -gt "$TARGET_KB" ]; then
             echo "Still above target (${new_size} KB). Retrying with stronger compression..."
             gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/screen \

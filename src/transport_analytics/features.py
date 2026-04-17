@@ -1,18 +1,16 @@
-# Mehdi AGHAEI
-"""Feature engineering for forecasting and anomaly analysis."""
+#Mehdi AGHAEI
 
 from __future__ import annotations
 
 import pandas as pd
 
-
+# adds day month and lag features
 def add_time_features(
     df: pd.DataFrame,
     date_col: str = "date",
     value_col: str = "value",
     group_cols: tuple[str, ...] = ("region", "source", "metric_type"),
 ) -> pd.DataFrame:
-    """Add standard time-series features to a daily fact table."""
     out = df.copy().sort_values([*group_cols, date_col])
     out[date_col] = pd.to_datetime(out[date_col], errors="coerce")
 

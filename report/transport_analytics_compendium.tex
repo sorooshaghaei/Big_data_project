@@ -83,12 +83,9 @@ multiple people work on notebooks, SQL, figures, and report text at the same
 time.
 
 This project compares Paris and New York City transport demand through one
-shared analytical contract. Earlier repository iterations mixed local files,
-exploratory notebook material, and placeholder report claims. The final
-baseline removes that ambiguity. PostgreSQL stores the authoritative data, SQL
-views expose reporting-clean inputs, Python generates result tables and
-figures, and the report is written from those generated artifacts instead of
-from temporary notebook output. 
+shared analytical contract. PostgreSQL stores the authoritative data, SQL
+views expose reporting-ready inputs, Python generates result tables and
+figures. 
 
 The report analyzes Paris and NYC with four methods: temporal profiling,
 lag-based forecasting, anomaly detection, and contributor / city-structure
@@ -152,7 +149,7 @@ socio-economic interpretation that the current dataset cannot support directly.
 
 Taken together, the literature defines three tasks used in this paper:
 descriptive mining, baseline forecasting, and disruption-aware analysis.
-The implemented pipeline applies those tasks through a reporting-clean
+The implemented pipeline applies those tasks through a reporting-ready
 PostgreSQL contract, a Paris-vs-NYC comparison, and one generated result set
 from which the metrics, figures, and report text are derived. The scope is a
 comparative analytical workflow rather than a new predictive architecture.
@@ -393,7 +390,7 @@ Paris 2025 year excluded from the comparison-oriented views.
 \toprule
 Artifact / source & Role & Grain / scope & Evidence \\
 \midrule
-\nolinkurl{v_daily_demand} & Shared daily baseline & city and station daily demand & yearly totals, forecast inputs \\
+\nolinkurl{v_daily_demand} & Shared daily baseline & daily city and source aggregates & yearly totals, forecast inputs \\
 \nolinkurl{v_nyc_hourly_profile} & Temporal shape analysis & hourly city profile views & hourly summaries \\
 \nolinkurl{v_paris_hourly_profile} & Temporal shape analysis & hourly city profile views & monthly summaries \\
 \nolinkurl{analysis_summary.json} & Result-size audit & 12,696 daily rows; 2,003 contributor rows & workflow output summary \\
@@ -423,7 +420,7 @@ the key validity checks.
 
 \subsection{Experiment 1: Temporal Profiling}
 
-The yearly totals confirm the effect of the reporting-clean scope. NYC covers
+The yearly totals confirm the effect of the cleaned reporting scope. NYC covers
 2020--2024, while Paris covers 2015--2024 with the incomplete 2025 year
 excluded. The Paris series shows a larger absolute scale throughout most of the
 window and a visible collapse in 2020 before a multi-year recovery. NYC shows a
@@ -607,7 +604,7 @@ higher weekend share (\(0.584\)) than Paris (\(0.512\)), which implies that
 Paris demand is more concentrated in weekday commuting structure. This is
 consistent with the seasonal and temporal differences reported earlier.
 
-The contributor ranking is also plausible after the Stage 2 label cleanup.
+The contributor ranking is also plausible after the label cleanup step.
 Paris is dominated by Saint-Lazare, La Défense--Grande Arche, Gare de Lyon,
 Gare du Nord, and Montparnasse, all of which are obvious interchange or
 high-throughput nodes. NYC is led by Times Sq--42 St, Grand Central--42 St,
@@ -722,14 +719,10 @@ a project report: the SQL views and workflow define one stable path, and the
 paper cites the outputs of that path. Still, if the database changes, the
 workflow must be rerun before the report should be updated.
 
-Compared with the earlier repository state, the notebook, result tables,
-figures, and report now read from regenerated PostgreSQL outputs rather than
-from separate narratives, manually assembled values, or placeholders.
-
-The repository history shows what happens when data sources, notebook text, SQL
-logic, and report claims drift apart: individual metrics become difficult to
-trace or defend. The PostgreSQL-first rewrite reduces that risk by keeping
-those artifacts on one result contract.
+This alignment matters in practice. When notebook text, SQL logic, figures,
+and report claims drift apart, individual metrics become difficult to trace or
+defend. The PostgreSQL-first workflow reduces that risk by keeping those
+artifacts on one result contract.
 
 At the same time, the report should not hide the remaining frontier. Better
 forecasting likely requires richer external context, more explicit modeling of
@@ -751,7 +744,7 @@ event labels or intervention data.
 
 This project delivers a coherent analytical baseline for comparing Paris
 and NYC transport demand. PostgreSQL serves as the single source of truth,
-reporting-clean views in the \texttt{transport} schema define the shared
+reporting-ready views in the \texttt{transport} schema define the shared
 contract, and the Python workflow generates the figures and CSV outputs used by
 the notebook and paper. Within that framework, four methods were enough to
 produce interpretable findings: temporal profiling established the seasonal and

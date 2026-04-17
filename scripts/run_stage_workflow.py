@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Run the Stage 1 PostgreSQL-first transport analytics workflow."""
 
 from __future__ import annotations
 
@@ -8,15 +7,14 @@ import fcntl
 import os
 import sys
 import threading
-import time
 from contextlib import contextmanager
 from pathlib import Path
 
-
+# prints the current step name
 def _progress(message: str) -> None:
     print(f"[progress] {message}", flush=True)
 
-
+# blocks a second run from starting at the same time
 @contextmanager
 def _single_run_lock(lock_path: Path):
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -35,11 +33,12 @@ def _single_run_lock(lock_path: Path):
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
-
+# prints small updates while long steps run
 @contextmanager
 def _heartbeat(label: str, interval_seconds: int = 5):
     stop_event = threading.Event()
 
+    # keeps the terminal alive during long jobs
     def run() -> None:
         while not stop_event.wait(interval_seconds):
             _progress(f"Still running: {label}")
@@ -52,7 +51,7 @@ def _heartbeat(label: str, interval_seconds: int = 5):
         stop_event.set()
         thread.join(timeout=0.1)
 
-
+# runs the postgres workflow from start to finish
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the PostgreSQL-backed transport analytics workflow.")
     parser.add_argument(
@@ -99,7 +98,6 @@ def main() -> int:
     print("daily_rows:", len(artifacts.daily))
     print("selected_methods:", len(outputs["stage1_plan"]))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
