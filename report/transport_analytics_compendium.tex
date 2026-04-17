@@ -32,7 +32,7 @@
 \vfuzz=3pt
 \raggedbottom
 
-\title{PostgreSQL-Backed Transport Analytics for Paris and New York City}
+\title{Public Transport Demand Analysis in Paris and New York City}
 \author{
 Maksym DOLHOV \and Mehdi AGHAEI \and Ho Bao Khanh Nguyen \and Nima DAVARI
 }
@@ -42,33 +42,9 @@ Maksym DOLHOV \and Mehdi AGHAEI \and Ho Bao Khanh Nguyen \and Nima DAVARI
 \maketitle
 
 \begin{abstract}
-This project analyzes Paris and New York City public-transport demand through a
-PostgreSQL-first reporting pipeline. Source tables
-\nolinkurl{public.idfm_daily_validations},
-\nolinkurl{public.idfm_hourly_profiles},
-\nolinkurl{public.mta_hourly_ridership}, \nolinkurl{public.idfm}, and
-\nolinkurl{public.mta} remain in the \texttt{public} schema, while the Python
-workflow reads reporting views in the \texttt{transport} schema:
-\nolinkurl{v_daily_demand}, \nolinkurl{v_nyc_hourly_profile},
-\nolinkurl{v_paris_hourly_profile}, \nolinkurl{v_contributor_source}, and
-\nolinkurl{v_city_structure_source}. The cleaned reporting scope includes NYC
-rows from 2020--2024 and Paris rows from 2015--2024, excludes the incomplete
-Paris 2025 year from comparison views, and restricts Paris contributor ranking
-to station-grain rows. Under this scope, the generated dataset contains
-\(12{,}696\) daily observations and \(2{,}003\) contributor-level rows. The
-workflow writes temporal summary files
-(\nolinkurl{temporal_yearly_totals.csv},
-\nolinkurl{temporal_monthly_profile.csv},
-\nolinkurl{temporal_weekday_profile.csv},
-\nolinkurl{temporal_nyc_hourly_profile.csv},
-\nolinkurl{temporal_paris_hourly_profile.csv}), forecasting files
-(\nolinkurl{forecast_metrics_overall.csv},
-\nolinkurl{forecast_metrics_by_city.csv},
-\nolinkurl{forecast_predictions.csv}), anomaly files
-(\nolinkurl{anomaly_flags.csv}, \nolinkurl{anomaly_rates.csv}), and
-contributor / structure files (\nolinkurl{top_contributors.csv},
-\nolinkurl{city_structure_summary.csv}, and
-\nolinkurl{city_monthly_structure.csv}) under \nolinkurl{report/results/}.
+
+This project compares public-transport demand in Paris and New York City using daily validation data from \^Ile-de-France Mobilit\'es and hourly subway ridership data from the MTA. After cleaning and harmonizing the two sources, we construct comparable daily and contributor-level datasets covering consistent reporting periods, for a final total of \(12{,}696\) daily observations and \(2{,}003\) contributor-level records. We analyze these data through temporal profiling, baseline forecasting, anomaly detection, and contributor analysis. The results show that Paris has the higher overall demand level, whereas New York City is slightly easier to predict with the current forecasting baseline, with MAPE values of \(5.86\%\) for NYC and \(6.94\%\) for Paris. Paris also exhibits a substantially higher anomaly rate, and the contributor analysis identifies major interchange hubs as the main demand drivers in both systems. Overall, the study shows that a reproducible data-analysis workflow can reveal meaningful differences in scale, regularity, and network concentration across the two transport systems.
+
 \end{abstract}
 
 \section{Introduction}
@@ -742,16 +718,11 @@ event labels or intervention data.
 
 \section{Conclusion}
 
-This project delivers a coherent analytical baseline for comparing Paris
-and NYC transport demand. PostgreSQL serves as the single source of truth,
-reporting-ready views in the \texttt{transport} schema define the shared
-contract, and the Python workflow generates the figures and CSV outputs used by
-the notebook and paper. Within that framework, four methods were enough to
-produce interpretable findings: temporal profiling established the seasonal and
-weekly structure, the lag-based forecasting baseline achieved single-digit MAPE
-in both cities, anomaly detection highlighted much stronger irregularity in
-Paris, and contributor analysis confirmed plausible dominant stations in both
-systems.
+This study highlights that Paris and New York City differ not only in total transport demand, but also in the regularity and structure of that demand. Paris shows the higher average daily volume, while New York City appears slightly more stable under the forecasting baseline used here. The anomaly results reinforce this contrast, with Paris displaying a markedly higher anomaly rate than NYC over the final comparison period. At the same time, the contributor analysis shows an important similarity between the two networks: in both cities, a relatively small number of major interchange hubs account for a large share of observed demand.
+
+These findings suggest that comparative transport analysis can provide useful insight even when the original datasets are not perfectly identical in format or granularity. The observed differences may reflect not only genuine behavioral or network effects, but also differences in reporting structure, aggregation choices, and the limits of the baseline methods used in this project. Future work could extend the analysis by integrating exogenous variables such as weather, holidays, service disruptions, or large events, and by testing more advanced forecasting and anomaly-detection models.
+
+Overall, the project shows that a structured and reproducible workflow can support a meaningful cross-city comparison of public-transport demand and can serve as a solid baseline for richer urban mobility analysis.
 
 
 \section{AI Use}

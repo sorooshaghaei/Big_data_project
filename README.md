@@ -1,10 +1,10 @@
 # Big_data_project
 
-Course project comparing Paris and NYC public-transport demand with a PostgreSQL-first analysis workflow
+Course project on public-transport demand in Paris and New York City
 
 ## Datasets
 
-The project uses five source tables loaded into PostgreSQL:
+We worked with five tables loaded into PostgreSQL:
 
 - `public.idfm_daily_validations`
 - `public.idfm_hourly_profiles`
@@ -12,14 +12,14 @@ The project uses five source tables loaded into PostgreSQL:
 - `public.idfm`
 - `public.mta`
 
-## Architecture
+## How It Works
 
-- PostgreSQL is the source of truth
+- the raw tables are stored in PostgreSQL
 - `sql/00_db_schema.sql` creates the raw table layout
-- `sql/01_schema.sql` and `sql/02_views.sql` create the reporting schema and views
-- `scripts/run_stage_workflow.py` reads PostgreSQL and writes `report/results/`
-- `scripts/build_report_figures.py` rebuilds `report/figures/`
-- `src/transport_analytics/legacy_*.py` is old local-file code and is not part of the final submission path
+- `sql/01_schema.sql` and `sql/02_views.sql` prepare the cleaned tables and views used for the analysis
+- `scripts/run_stage_workflow.py` generates the result files in `report/results/`
+- `scripts/build_report_figures.py` rebuilds the figures in `report/figures/`
+- `src/transport_analytics/legacy_*.py` contains older experiments and is not needed to rerun the final version
 
 ## Files That Matter
 
@@ -36,7 +36,7 @@ The project uses five source tables loaded into PostgreSQL:
 
 ## Rerun The Analysis
 
-Install dependencies:
+Install the dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -53,7 +53,7 @@ source .env
 set +a
 ```
 
-Prepare the database with the same process used for this project:
+Prepare the database the same way we did during the project:
 
 - run `sql/00_db_schema.sql`
 - import the five source tables with DBeaver
@@ -61,19 +61,19 @@ Prepare the database with the same process used for this project:
 - run `sql/02_views.sql`
 - detailed steps are in `docs/POSTGRES_DBEAVER_IMPORT.md`
 
-Run the analysis:
+Then run:
 
 ```bash
 .venv/bin/python scripts/run_stage_workflow.py
 .venv/bin/python scripts/build_report_figures.py
 ```
 
-The full-data PostgreSQL run can take several minutes because the reporting views read the whole dataset
+The full run can take several minutes because it reads the whole dataset
 
 ## Main Findings
 
 - Paris has higher average daily demand than NYC at about `4.13M` versus `2.63M`
-- the lag-based baseline reaches single-digit MAPE in both cities: `5.86%` for NYC and `6.94%` for Paris
+- the forecasting baseline reaches single-digit MAPE in both cities: `5.86%` for NYC and `6.94%` for Paris
 - Paris shows a much higher anomaly rate than NYC: `8.96%` versus `0.73%`
 - top contributors include Saint-Lazare, La Defense-Grande Arche, Gare de Lyon, Times Sq--42 St, and Grand Central--42 St
 
