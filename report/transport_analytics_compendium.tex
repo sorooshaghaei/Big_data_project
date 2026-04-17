@@ -262,14 +262,26 @@ View & Role in the workflow \\
 
 \section{Methods}
 
+The methods were selected to satisfy four project constraints: cross-city
+comparability, compatibility with the available cleaned reporting features,
+reproducibility in a course-scale workflow, and sufficient interpretability for
+discussion of results. For that reason, the project favors transparent
+descriptive summaries and robust baseline machine-learning methods over heavier,
+highly tuned alternatives. The objective is not to claim the best possible
+predictive or anomaly-detection performance, but to build a coherent analytical
+pipeline that can be applied consistently to both Paris and NYC data and whose
+outputs remain straightforward to inspect, validate, and explain.
+
 \subsection{Temporal profiling}
 
-Temporal profiling is the descriptive baseline for the whole project. The daily
-demand view is summarized by year, month, and weekday to reveal long-horizon
-trends, seasonal structure, and weekly rhythm. The two hourly profile views are
-kept separate because Paris hourly data is based on validation shares, while
-NYC hourly data is based on observed ridership totals. This method produces the
-tables \nolinkurl{temporal_yearly_totals.csv},
+Temporal profiling is the descriptive baseline for the whole project. It was
+chosen first because it provides a direct validation layer for the cleaned data
+before predictive or anomaly outputs are interpreted. The daily demand view is
+summarized by year, month, and weekday to reveal long-horizon trends, seasonal
+structure, and weekly rhythm. The two hourly profile views are kept separate
+because Paris hourly data is based on validation shares, while NYC hourly data
+is based on observed ridership totals. This method produces the tables
+\nolinkurl{temporal_yearly_totals.csv},
 \nolinkurl{temporal_monthly_profile.csv},
 \nolinkurl{temporal_weekday_profile.csv},
 \nolinkurl{temporal_nyc_hourly_profile.csv}, and
@@ -281,18 +293,29 @@ or anomaly outputs are interpreted.
 
 \subsection{Lag-based forecasting}
 
-The forecasting stage uses the cleaned daily demand series as input. The model
-is intentionally simple: a random-forest regressor trained on lag features,
-rolling-window statistics, and calendar attributes derived from the daily
-series. The numerical features are \texttt{lag\_1}, \texttt{lag\_7},
+The forecasting stage uses the cleaned daily demand series as input. A
+random-forest regressor was chosen as a practical baseline because it can model
+nonlinear interactions between lagged demand, rolling statistics, and calendar
+effects without requiring strong parametric assumptions about the time series.
+This is appropriate in the present setting, where the series combines
+seasonality, weekday effects, and city-specific variation, but the project does
+not aim to build a heavily tuned forecasting system. Compared with a purely
+linear model, the random forest is more flexible in capturing threshold and
+interaction effects. Compared with heavier sequence models, it is easier to
+rerun, document, and interpret within the scope of the project.
+
+The numerical features are \texttt{lag\_1}, \texttt{lag\_7},
 \texttt{lag\_14}, rolling means and standard deviations over 7-day and 30-day
 windows, and one-step percentage change. Calendar features include day of week,
 week of year, day of year, month, year, and weekend status. Region, source, and
 metric type are one-hot encoded as categorical inputs. The split is time
 ordered, not random, so the model is evaluated on future observations relative
 to the training period. The random forest uses 220 trees with
-\texttt{min\_samples\_leaf=2}, which balances stability and transparency for the
-project scale. This produces \nolinkurl{forecast_metrics_overall.csv},
+\texttt{min\_samples\_leaf=2}. These values were selected as stable baseline
+settings that reduce sensitivity to individual trees while keeping the model
+compact enough to train and inspect easily in the project workflow, rather than
+as the result of an exhaustive hyperparameter search. This produces
+\nolinkurl{forecast_metrics_overall.csv},
 \nolinkurl{forecast_metrics_by_city.csv}, and
 \nolinkurl{forecast_predictions.csv}. These files record holdout predictions
 and error metrics for the cleaned daily demand series under the lag-based
@@ -302,26 +325,40 @@ baseline.
 
 The anomaly layer combines two signals: a rolling z-score that captures local
 deviation from recent behavior, and an \texttt{IsolationForest} model fitted on
-current value and lag-derived features. The anomaly feature set includes
-current value, 1-day and 7-day lags, a 7-day rolling mean and standard
-deviation, one-step percentage change, and a 30-day rolling z-score. The
-isolation model uses a contamination value of 0.03, while the statistical
-branch flags any observation with \(|z| \ge 2.5\). This hybrid design helps
-separate routine daily variation from observations that are unusual both in
-local context and in the broader feature space. The output is written to
-\nolinkurl{anomaly_flags.csv} and summarized in
+current value and lag-derived features. This hybrid design was chosen because
+the project has no ground-truth anomaly labels. Under that constraint, a purely
+statistical rule would be easy to interpret but may miss unusual points that
+are not extreme on a single rolling scale, while a purely model-based detector
+could identify multivariate outliers but would be harder to explain on its own.
+Using both signals therefore provides a compromise between interpretability and
+feature-space sensitivity.
+
+The anomaly feature set includes current value, 1-day and 7-day lags, a 7-day
+rolling mean and standard deviation, one-step percentage change, and a 30-day
+rolling z-score. The isolation model uses a contamination value of 0.03, while
+the statistical branch flags any observation with \(|z| \ge 2.5\). These
+thresholds were selected as conservative baseline settings to highlight a small
+share of clearly unusual observations without producing an anomaly flag for
+ordinary day-to-day fluctuation; they should therefore be interpreted as
+screening parameters rather than validated disruption thresholds. The output is
+written to \nolinkurl{anomaly_flags.csv} and summarized in
 \nolinkurl{anomaly_rates.csv}. The method is descriptive: it highlights unusual
 observations for interpretation, but it does not claim to identify the causal
 mechanism behind each anomaly.
 
 \subsection{Contributor and Structure Analysis}
 
-The method ranks stations by total demand contribution and summarizes each
-city through aggregate statistics such as average daily demand, variability,
-weekend sensitivity, and peak month. Paris contributor analysis is explicitly
-restricted to station-grain rows to avoid mixing station and line semantics in
-the ranking. NYC contributor totals are computed from the cleaned station
-daily demand layer. This stage produces \nolinkurl{top_contributors.csv},
+The contributor and structure stage ranks stations by total demand contribution
+and summarizes each city through aggregate statistics such as average daily
+demand, variability, weekend sensitivity, and peak month. This method was
+chosen as a descriptive complement to forecasting and anomaly analysis: instead
+of predicting future demand or flagging unusual dates, it helps explain whether
+city-level differences are broadly distributed across the network or
+concentrated in a small number of dominant stations. Paris contributor analysis
+is explicitly restricted to station-grain rows to avoid mixing station and line
+semantics in the ranking. NYC contributor totals are computed from the cleaned
+station daily demand layer. This stage produces
+\nolinkurl{top_contributors.csv},
 \nolinkurl{city_structure_summary.csv}, and
 \nolinkurl{city_monthly_structure.csv}. It complements the other methods by
 showing whether city-level differences are driven by broad network structure,
@@ -344,6 +381,7 @@ Contributors & station-level facts, city daily aggregates & top contributors and
 \end{tabular}
 }
 \end{table}
+
 
 \section{Experiments and Results}
 
@@ -393,20 +431,27 @@ Artifact / source & Role & Grain / scope & Evidence \\
 
 \subsubsection{Protocols and evaluation}
 
-Each experiment uses one clear setup linked to saved result files. Temporal profiling aggregates the cleaned daily and hourly views into yearly, monthly, weekday, and hourly summaries. Forecasting uses a time-ordered holdout split with cutoff date \texttt{2023-01-03}, and reports MAE, RMSE, and MAPE from \nolinkurl{forecast_metrics_overall.csv} and \nolinkurl{forecast_metrics_by_city.csv}. Anomaly detection applies the hybrid rolling-z-score plus \texttt{IsolationForest} design and evaluates the output
+Each experiment uses one clear setup linked to saved result files. Temporal
+profiling aggregates the cleaned daily and hourly views into yearly, monthly,
+weekday, and hourly summaries. Forecasting uses a time-ordered holdout split
+with cutoff date 2023-01-03, and reports MAE, RMSE, and MAPE from
+\texttt{forecast\_metrics\_overall.csv} and
+\texttt{forecast\_metrics\_by\_city.csv}. Anomaly detection applies the hybrid
+rolling-z-score plus \texttt{IsolationForest} design and evaluates the output
 through anomaly-rate summaries rather than classification accuracy. Contributor
 and city-structure analysis ranks stations and summarizes city-level aggregates
 as a comparative descriptive experiment.
 
-This evaluation logic matches the available data and task definitions.
-Forecasting is judged through holdout error because random shuffling would leak
-future information into training. City-level metrics are reported alongside
-overall metrics to avoid hiding cross-city asymmetry inside one aggregate
-score. For anomaly detection, no ground-truth anomaly labels are available, so
-the report uses anomaly-rate summaries and qualitative interpretation of flagged
-periods. For contributor and city-structure analysis, plausibility of station
-rankings and consistency with temporal summaries act as
-the key validity checks.
+This evaluation logic matches the available data and the role of each method in
+the project. Forecasting is judged through holdout error because random
+shuffling would leak future information into training. City-level metrics are
+reported alongside overall metrics to avoid hiding cross-city asymmetry inside
+one aggregate score. For anomaly detection, no ground-truth anomaly labels are
+available, so the report uses anomaly-rate summaries and qualitative
+interpretation of flagged periods rather than claiming validated detection
+performance. For contributor and city-structure analysis, plausibility of
+station rankings and consistency with temporal summaries act as the main
+validity checks.
 
 \subsection{Experiment 1: Temporal Profiling}
 
@@ -644,6 +689,19 @@ the contributor ranking shows that Paris demand is more concentrated in a set of
 very large hubs, while NYC distributes high demand across several major
 interchange complexes.
 
+Taken together, these results support a consistent baseline interpretation.
+The descriptive summaries establish the structure of the series, the forecasting
+baseline measures how predictable that structure remains under simple lag and
+calendar features, the anomaly layer highlights periods that depart from routine
+behavior, and the contributor analysis shows how much of each city's demand is
+absorbed by dominant hubs. The methods were therefore chosen to answer related
+questions from one cleaned data layer rather than as separate standalone
+exercises.
+
+The daily summaries, anomaly tables, and contributor rankings all come from one
+cleaned data layer. As a result, these sections use one city scope, one
+contributor grain, and one consistent set of saved outputs.
+
 \begin{table}[t]
 \centering
 \footnotesize
@@ -688,13 +746,20 @@ most advanced model available for transport demand prediction. The forecasting
 component is intentionally simple. It is transparent, quick to rerun, and
 useful for comparing the two cleaned city series, but it does not model richer
 network or event effects in the way graph-based and more specialized temporal
-models might
-\cite{xie2022graph,lablack2019astir}.
+models might [6, 7]. The same logic applies to method selection more broadly:
+the methods were chosen because they are comparable across both cities,
+compatible with the available cleaned features, reproducible within the course
+workflow, and interpretable enough to support discussion of results. They
+should therefore be understood as analytical baselines, not as the outcome of a
+full model-comparison study.
 
 The anomaly layer should also be interpreted carefully. A flagged observation is
 evidence of unusual behavior, not proof of a particular operational cause. In
-this report, anomaly detection functions as a triage layer that marks periods
-for human interpretation or future event matching.
+this report, anomaly detection functions as a screening or triage layer that
+marks periods for human interpretation or future event matching. Because the
+project does not include ground-truth anomaly labels, the anomaly outputs are
+useful for comparison and interpretation, but they do not validate that each
+flagged point corresponds to a real disruption.
 
 Contributor analysis remains sensitive to source labeling. The project removed
 mechanical whitespace inconsistencies and restricted Paris ranking to station
@@ -709,8 +774,8 @@ the same cleaning and analysis steps can be rerun, but the paper itself stays
 linked to a fixed set of outputs. If the database changes, the analysis should
 be rerun before the report is updated.
 
-This alignment matters in practice. When notebook text, SQL logic, figures,
-and report claims drift apart, individual metrics become difficult to trace or
+This alignment matters in practice. When notebook text, SQL logic, figures, and
+report claims drift apart, individual metrics become difficult to trace or
 defend. The current workflow reduces that risk by keeping those artifacts tied
 to the same cleaned data and result files.
 
@@ -732,11 +797,36 @@ event labels or intervention data.
 
 \section{Conclusion}
 
-This study highlights that Paris and New York City differ not only in total transport demand, but also in the regularity and structure of that demand. Paris shows the higher average daily volume, while New York City appears slightly more stable under the forecasting baseline used here. The anomaly results reinforce this contrast, with Paris displaying a markedly higher anomaly rate than NYC over the final comparison period. At the same time, the contributor analysis shows an important similarity between the two networks: in both cities, a relatively small number of major interchange hubs account for a large share of observed demand.
+This study shows that Paris and New York City differ not only in total public
+transport demand, but also in the regularity and structure of that demand.
+Paris has the higher average daily volume, while New York City appears slightly
+easier to predict under the lag-based forecasting baseline used in this
+project. The anomaly results reinforce this contrast, with Paris displaying a
+markedly higher anomaly rate than NYC over the final comparison period. At the
+same time, the contributor analysis shows an important similarity between the
+two networks: in both cities, a relatively small number of major interchange
+hubs account for a large share of observed demand.
 
-These findings suggest that comparative transport analysis can provide useful insight even when the original datasets are not perfectly identical in format or granularity. The observed differences may reflect not only genuine behavioral or network effects, but also differences in reporting structure, aggregation choices, and the limits of the baseline methods used in this project. Future work could extend the analysis by integrating exogenous variables such as weather, holidays, service disruptions, or large events, and by testing more advanced forecasting and anomaly-detection models.
+These findings suggest that comparative transport analysis can still provide
+useful insight even when the original datasets are not perfectly identical in
+format or granularity. The paper does not claim full measurement equivalence at
+every intermediate step. Instead, it shows that once both systems are mapped
+into one cleaned comparison scope, they can support a defensible baseline
+analysis of trend, forecastability, anomaly concentration, and hub dominance.
 
-Overall, the project shows that a structured and reproducible workflow can support a meaningful cross-city comparison of public-transport demand and can serve as a solid baseline for richer urban mobility analysis.
+The project also shows the value of method selection under practical
+constraints. The methods used here were chosen because they could be applied
+consistently across both cities, supported by the available cleaned features,
+rerun within a reproducible workflow, and interpreted without excessive model
+complexity. For that reason, the report should be read as a clear comparative
+baseline rather than as a search for the strongest possible predictive model.
+
+Future work could extend the analysis by integrating exogenous variables such as
+weather, holidays, service disruptions, or large events, and by testing more
+advanced forecasting and anomaly-detection models. Overall, the project shows
+that a structured and reproducible workflow can support a meaningful cross-city
+comparison of public-transport demand and can serve as a solid baseline for
+richer urban mobility analysis.
 
 
 \section{AI Use}
