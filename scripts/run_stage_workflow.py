@@ -57,7 +57,7 @@ def main() -> int:
     parser.add_argument(
         "--refresh-sql",
         action="store_true",
-        help="Apply sql/01_schema.sql and sql/02_views.sql before reading the analytical contract.",
+        help="Apply sql/01_schema.sql and sql/02_views.sql before reading the analytical contract. Both files are idempotent; safe to re-run on a populated database.",
     )
     args = parser.parse_args()
 

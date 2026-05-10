@@ -15,8 +15,8 @@ We worked with five tables loaded into PostgreSQL:
 ## How It Works
 
 - the raw tables are stored in PostgreSQL
-- `sql/00_db_schema.sql` creates the raw table layout
-- `sql/01_schema.sql` and `sql/02_views.sql` prepare the cleaned tables and views used for the analysis
+- `sql/01_schema.sql` creates the `transport` schema and the raw table layout in `public` (idempotent: safe to re-run on a populated database)
+- `sql/02_views.sql` builds the cleaned views used for the analysis
 - `scripts/run_stage_workflow.py` generates the result files in `report/results/`
 - `scripts/build_report_figures.py` rebuilds the figures in `report/figures/`
 
@@ -29,7 +29,6 @@ Big_data_project_submission/
 ├── .gitignore
 ├── .env.example
 ├── sql/
-│   ├── 00_db_schema.sql
 │   ├── 01_schema.sql
 │   ├── 02_views.sql
 │   └── 03_analytics_examples.sql  
@@ -75,9 +74,8 @@ set +a
 
 Prepare the database the same way we did during the project:
 
-- run `sql/00_db_schema.sql`
-- import the five source tables with DBeaver
 - run `sql/01_schema.sql`
+- import the five source tables with DBeaver
 - run `sql/02_views.sql`
 - detailed steps are in `docs/POSTGRES_DBEAVER_IMPORT.md`
 
