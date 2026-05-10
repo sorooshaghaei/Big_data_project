@@ -51,7 +51,6 @@ Big_data_project_submission/
 │   ├── transport_analytics_compendium.tex
 │   ├── results/
 │   └── figures/
-└── 
 
 ## Rerun The Analysis
 
